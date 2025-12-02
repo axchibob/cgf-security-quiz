@@ -7,128 +7,426 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🛡️ CGF Security Knowledge Assessment</h1>
-            <p>Test your security knowledge across 4 key categories</p>
-        </header>
-
-        <div id="welcome-screen" class="screen active">
-            <div class="welcome-card">
-                <h2>Welcome to the Assessment</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="icon">📝</span>
-                        <h3>16 Questions</h3>
-                        <p>4 questions from each category</p>
-                    </div>
-                    <div class="info-item">
-                        <span class="icon">🔀</span>
-                        <h3>Randomized</h3>
-                        <p>Different questions each time</p>
-                    </div>
-                    <div class="info-item">
-                        <span class="icon">📊</span>
-                        <h3>Category Analysis</h3>
-                        <p>See performance by topic</p>
-                    </div>
-                    <div class="info-item">
-                        <span class="icon">⏱️</span>
-                        <h3>Timed</h3>
-                        <p>Track your completion time</p>
-                    </div>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="login-container">
+            <div class="login-card">
+                <h1>🛡️ CGF Security Assessment</h1>
+                <div class="login-tabs">
+                    <button class="login-tab active" data-role="user">👤 User Login</button>
+                    <button class="login-tab" data-role="admin">⚙️ Admin Login</button>
                 </div>
                 
-                <div class="user-input">
-                    <input type="text" id="userName" placeholder="Enter your name" required>
-                    <button id="startQuiz" class="btn-primary">Start Assessment</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="quiz-screen" class="screen">
-            <div class="quiz-header">
-                <div class="progress-info">
-                    <span>Question <span id="currentQ">1</span> of <span id="totalQ">16</span></span>
-                    <span>Category: <span id="currentCategory">Physical Security</span></span>
-                </div>
-                <div class="timer">Time: <span id="timer">00:00</span></div>
-            </div>
-
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-
-            <div class="question-card">
-                <h3 id="questionText">Question will appear here</h3>
-                <div class="options" id="optionsContainer">
-                    <!-- Options will be generated here -->
-                </div>
-            </div>
-
-            <div class="quiz-navigation">
-                <button id="prevBtn" class="btn-secondary" disabled>Previous</button>
-                <button id="nextBtn" class="btn-primary" disabled>Next</button>
-            </div>
-        </div>
-
-        <div id="results-screen" class="screen">
-            <div class="results-card">
-                <h2>🎉 Assessment Complete!</h2>
-                <div class="score-summary">
-                    <div class="overall-score">
-                        <span class="score-number" id="overallScore">0%</span>
-                        <span class="score-label">Overall Score</span>
+                <!-- User Login -->
+                <div id="user-login" class="login-form active">
+                    <h2>Welcome User</h2>
+                    <p>Enter your details to start the assessment</p>
+                    <div class="form-group">
+                        <input type="text" id="userFullName" placeholder="Full Name *" required>
                     </div>
-                </div>
-
-                <div class="category-results" id="categoryResults">
-                    <!-- Category breakdown will appear here -->
-                </div>
-
-                <div class="action-buttons">
-                    <button id="retakeBtn" class="btn-secondary">Take Again</button>
-                    <button id="exportBtn" class="btn-primary">Export Results</button>
-                    <button id="viewAllResults" class="btn-primary">View All Results</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="admin-screen" class="screen">
-            <div class="admin-panel">
-                <h2>⚙️ Admin Panel</h2>
-                <div class="admin-tabs">
-                    <button class="tab-btn active" data-tab="questions">Questions</button>
-                    <button class="tab-btn" data-tab="results">Results</button>
-                    <button class="tab-btn" data-tab="analytics">Analytics</button>
+                    <div class="form-group">
+                        <input type="email" id="userEmail" placeholder="Email Address *" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="userDepartment" placeholder="Department/Team">
+                    </div>
+                    <button id="userLoginBtn" class="btn-primary">Start Assessment</button>
                 </div>
                 
-                <div class="tab-content" id="questions-tab">
-                    <h3>Question Management</h3>
-                    <div id="questionsList">
-                        <!-- Questions will be loaded here -->
+                <!-- Admin Login -->
+                <div id="admin-login" class="login-form">
+                    <h2>Admin Access</h2>
+                    <p>Enter admin credentials to access dashboard</p>
+                    <div class="form-group">
+                        <input type="text" id="adminUsername" placeholder="Admin Username" required>
                     </div>
-                </div>
-                
-                <div class="tab-content" id="results-tab">
-                    <h3>All Results</h3>
-                    <div id="allResultsList">
-                        <!-- Results will be loaded here -->
+                    <div class="form-group">
+                        <input type="password" id="adminPassword" placeholder="Admin Password" required>
                     </div>
-                </div>
-                
-                <div class="tab-content" id="analytics-tab">
-                    <h3>Analytics Dashboard</h3>
-                    <div id="analyticsContent">
-                        <!-- Analytics will be loaded here -->
-                    </div>
+                    <button id="adminLoginBtn" class="btn-primary">Access Dashboard</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="floating-admin">
-        <button id="adminToggle" title="Admin Panel">⚙️</button>
+    <div class="container">
+        <!-- User Quiz Interface -->
+        <div id="user-interface" class="interface">
+            <header class="user-header">
+                <h1>🛡️ CGF Security Knowledge Assessment</h1>
+                <div class="user-info">
+                    <span id="currentUserName">User</span>
+                    <button id="userLogout" class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <!-- Welcome Screen -->
+            <div id="welcome-screen" class="screen">
+                <div class="welcome-card">
+                    <h2>Welcome to the Security Assessment</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="icon">📝</span>
+                            <h3>16 Questions</h3>
+                            <p>4 random questions from each category</p>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon">🔀</span>
+                            <h3>Randomized</h3>
+                            <p>Different questions each time</p>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon">📊</span>
+                            <h3>Category Analysis</h3>
+                            <p>Performance breakdown by topic</p>
+                        </div>
+                        <div class="info-item">
+                            <span class="icon">⏱️</span>
+                            <h3>Timed</h3>
+                            <p>Track your completion time</p>
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-info">
+                        <h3>Assessment Categories:</h3>
+                        <ul id="categoryList"></ul>
+                        <p><strong>Passing Score:</strong> 70%</p>
+                    </div>
+                    
+                    <button id="startQuiz" class="btn-primary btn-large">Start Assessment</button>
+                </div>
+            </div>
+
+            <!-- Quiz Screen -->
+            <div id="quiz-screen" class="screen">
+                <div class="quiz-header">
+                    <div class="progress-info">
+                        <span>Question <span id="currentQ">1</span> of <span id="totalQ">16</span></span>
+                        <span>Category: <span id="currentCategory">Loading...</span></span>
+                    </div>
+                    <div class="timer">Time: <span id="timer">00:00</span></div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+
+                <div class="question-card">
+                    <h3 id="questionText">Loading question...</h3>
+                    <div class="options" id="optionsContainer"></div>
+                </div>
+
+                <div class="quiz-navigation">
+                    <button id="prevBtn" class="btn-secondary" disabled>Previous</button>
+                    <button id="nextBtn" class="btn-primary" disabled>Next</button>
+                </div>
+            </div>
+
+            <!-- Results Screen -->
+            <div id="results-screen" class="screen">
+                <div class="results-card">
+                    <h2 id="resultsTitle">🎉 Assessment Complete!</h2>
+                    <div class="score-summary">
+                        <div class="overall-score" id="overallScoreCard">
+                            <span class="score-number" id="overallScore">0%</span>
+                            <span class="score-label">Overall Score</span>
+                            <span class="score-status" id="scoreStatus">PASS</span>
+                        </div>
+                    </div>
+
+                    <div class="category-results" id="categoryResults"></div>
+
+                    <div class="action-buttons">
+                        <button id="retakeBtn" class="btn-secondary">Take Again</button>
+                        <button id="exportUserBtn" class="btn-primary">Export My Results</button>
+                        <button id="submitResults" class="btn-primary btn-large">Submit Results</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Interface -->
+        <div id="admin-interface" class="interface">
+            <header class="admin-header">
+                <h1>⚙️ Admin Dashboard - CGF Security Assessment</h1>
+                <div class="admin-info">
+                    <span id="currentAdminName">Administrator</span>
+                    <button id="adminLogout" class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div class="admin-panel">
+                <div class="admin-tabs">
+                    <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+                    <button class="tab-btn" data-tab="results">📋 All Results</button>
+                    <button class="tab-btn" data-tab="analytics">📈 Analytics</button>
+                    <button class="tab-btn" data-tab="questions">📝 Questions</button>
+                    <button class="tab-btn" data-tab="categories">📂 Categories</button>
+                    <button class="tab-btn" data-tab="users">👥 Users</button>
+                </div>
+
+                <!-- Dashboard Tab -->
+                <div class="tab-content active" id="dashboard-tab">
+                    <div class="dashboard-stats">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalUsers">0</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalAttempts">0</div>
+                            <div class="stat-label">Total Attempts</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="avgScore">0%</div>
+                            <div class="stat-label">Average Score</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="passRate">0%</div>
+                            <div class="stat-label">Pass Rate</div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <h3>📈 Category Performance Ranking</h3>
+                            <div id="categoryRanking"></div>
+                        </div>
+                        
+                        <div class="dashboard-card">
+                            <h3>🏆 Top Performers</h3>
+                            <div id="topPerformers"></div>
+                        </div>
+                        
+                        <div class="dashboard-card">
+                            <h3>📋 Recent Submissions</h3>
+                            <div id="recentSubmissions"></div>
+                        </div>
+                        
+                        <div class="dashboard-card">
+                            <h3>⚠️ Low Performers</h3>
+                            <div id="lowPerformers"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Tab -->
+                <div class="tab-content" id="results-tab">
+                    <div class="tab-header">
+                        <h3>📋 All User Results</h3>
+                        <div class="admin-actions">
+                            <button id="exportAllResults" class="btn-primary">📥 Export All</button>
+                            <button id="clearAllResults" class="btn-danger">🗑️ Clear All</button>
+                        </div>
+                    </div>
+                    <div class="results-filters">
+                        <input type="text" id="searchResults" placeholder="Search by name or email...">
+                        <select id="filterStatus">
+                            <option value="">All Status</option>
+                            <option value="pass">Pass Only</option>
+                            <option value="fail">Fail Only</option>
+                        </select>
+                        <select id="sortResults">
+                            <option value="date">Sort by Date</option>
+                            <option value="score">Sort by Score</option>
+                            <option value="name">Sort by Name</option>
+                        </select>
+                    </div>
+                    <div id="allResultsList"></div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div class="tab-content" id="analytics-tab">
+                    <h3>📈 Detailed Analytics</h3>
+                    <div class="analytics-grid">
+                        <div class="analytics-card">
+                            <h4>Category Performance Analysis</h4>
+                            <div id="categoryAnalytics"></div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>User Performance Distribution</h4>
+                            <div id="scoreDistribution"></div>
+                        </div>
+                        <div class="analytics-card">
+                            <h4>Question Difficulty Analysis</h4>
+                            <div id="questionDifficulty"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions Tab -->
+                <div class="tab-content" id="questions-tab">
+                    <div class="tab-header">
+                        <h3>📝 Question Management</h3>
+                        <button id="addQuestionBtn" class="btn-primary">+ Add Question</button>
+                    </div>
+                    <div class="questions-filters">
+                        <select id="filterCategory">
+                            <option value="">All Categories</option>
+                        </select>
+                        <input type="text" id="searchQuestions" placeholder="Search questions...">
+                    </div>
+                    <div id="questionsList"></div>
+                </div>
+
+                <!-- Categories Tab -->
+                <div class="tab-content" id="categories-tab">
+                    <div class="tab-header">
+                        <h3>📂 Category Management</h3>
+                        <button id="addCategoryBtn" class="btn-primary">+ Add Category</button>
+                    </div>
+                    <div id="categoriesList"></div>
+                </div>
+
+                <!-- Users Tab -->
+                <div class="tab-content" id="users-tab">
+                    <div class="tab-header">
+                        <h3>👥 User Rankings</h3>
+                        <div class="admin-actions">
+                            <button id="exportUserRankings" class="btn-primary">📥 Export Rankings</button>
+                        </div>
+                    </div>
+                    <div id="userRankings"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Question Modal -->
+    <div id="addQuestionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Question</h3>
+                <button id="closeQuestionModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addQuestionForm">
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <select id="questionCategory" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Question:</label>
+                        <textarea id="questionText" required placeholder="Enter your question here..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Option A:</label>
+                        <input type="text" id="optionA" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option B:</label>
+                        <input type="text" id="optionB" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option C:</label>
+                        <input type="text" id="optionC" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option D:</label>
+                        <input type="text" id="optionD" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Correct Answer:</label>
+                        <select id="correctAnswer" required>
+                            <option value="0">Option A</option>
+                            <option value="1">Option B</option>
+                            <option value="2">Option C</option>
+                            <option value="3">Option D</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Explanation:</label>
+                        <textarea id="explanation" placeholder="Explain why this is the correct answer..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Add Question</button>
+                        <button type="button" id="cancelAddQuestion" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div id="addCategoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Category</h3>
+                <button id="closeCategoryModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm">
+                    <div class="form-group">
+                        <label>Category Name:</label>
+                        <input type="text" id="categoryName" required placeholder="Enter category name...">
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea id="categoryDescription" placeholder="Enter category description..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Add Category</button>
+                        <button type="button" id="cancelAddCategory" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Question Modal -->
+    <div id="editQuestionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Question</h3>
+                <button id="closeEditModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editQuestionForm">
+                    <input type="hidden" id="editQuestionId">
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <select id="editQuestionCategory" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Question:</label>
+                        <textarea id="editQuestionText" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Option A:</label>
+                        <input type="text" id="editOptionA" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option B:</label>
+                        <input type="text" id="editOptionB" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option C:</label>
+                        <input type="text" id="editOptionC" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option D:</label>
+                        <input type="text" id="editOptionD" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Correct Answer:</label>
+                        <select id="editCorrectAnswer" required>
+                            <option value="0">Option A</option>
+                            <option value="1">Option B</option>
+                            <option value="2">Option C</option>
+                            <option value="3">Option D</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Explanation:</label>
+                        <textarea id="editExplanation"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Update Question</button>
+                        <button type="button" id="cancelEdit" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <script src="js/questions.js"></script>
