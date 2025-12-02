@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CGF Security Knowledge Assessment</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ CGF Security Knowledge Assessment</h1>
+            <p>Test your security knowledge across 4 key categories</p>
+        </header>
+
+        <div id="welcome-screen" class="screen active">
+            <div class="welcome-card">
+                <h2>Welcome to the Assessment</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="icon">📝</span>
+                        <h3>16 Questions</h3>
+                        <p>4 questions from each category</p>
+                    </div>
+                    <div class="info-item">
+                        <span class="icon">🔀</span>
+                        <h3>Randomized</h3>
+                        <p>Different questions each time</p>
+                    </div>
+                    <div class="info-item">
+                        <span class="icon">📊</span>
+                        <h3>Category Analysis</h3>
+                        <p>See performance by topic</p>
+                    </div>
+                    <div class="info-item">
+                        <span class="icon">⏱️</span>
+                        <h3>Timed</h3>
+                        <p>Track your completion time</p>
+                    </div>
+                </div>
+                
+                <div class="user-input">
+                    <input type="text" id="userName" placeholder="Enter your name" required>
+                    <button id="startQuiz" class="btn-primary">Start Assessment</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="quiz-screen" class="screen">
+            <div class="quiz-header">
+                <div class="progress-info">
+                    <span>Question <span id="currentQ">1</span> of <span id="totalQ">16</span></span>
+                    <span>Category: <span id="currentCategory">Physical Security</span></span>
+                </div>
+                <div class="timer">Time: <span id="timer">00:00</span></div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="question-card">
+                <h3 id="questionText">Question will appear here</h3>
+                <div class="options" id="optionsContainer">
+                    <!-- Options will be generated here -->
+                </div>
+            </div>
+
+            <div class="quiz-navigation">
+                <button id="prevBtn" class="btn-secondary" disabled>Previous</button>
+                <button id="nextBtn" class="btn-primary" disabled>Next</button>
+            </div>
+        </div>
+
+        <div id="results-screen" class="screen">
+            <div class="results-card">
+                <h2>🎉 Assessment Complete!</h2>
+                <div class="score-summary">
+                    <div class="overall-score">
+                        <span class="score-number" id="overallScore">0%</span>
+                        <span class="score-label">Overall Score</span>
+                    </div>
+                </div>
+
+                <div class="category-results" id="categoryResults">
+                    <!-- Category breakdown will appear here -->
+                </div>
+
+                <div class="action-buttons">
+                    <button id="retakeBtn" class="btn-secondary">Take Again</button>
+                    <button id="exportBtn" class="btn-primary">Export Results</button>
+                    <button id="viewAllResults" class="btn-primary">View All Results</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-screen" class="screen">
+            <div class="admin-panel">
+                <h2>⚙️ Admin Panel</h2>
+                <div class="admin-tabs">
+                    <button class="tab-btn active" data-tab="questions">Questions</button>
+                    <button class="tab-btn" data-tab="results">Results</button>
+                    <button class="tab-btn" data-tab="analytics">Analytics</button>
+                </div>
+                
+                <div class="tab-content" id="questions-tab">
+                    <h3>Question Management</h3>
+                    <div id="questionsList">
+                        <!-- Questions will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="results-tab">
+                    <h3>All Results</h3>
+                    <div id="allResultsList">
+                        <!-- Results will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="analytics-tab">
+                    <h3>Analytics Dashboard</h3>
+                    <div id="analyticsContent">
+                        <!-- Analytics will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="floating-admin">
+        <button id="adminToggle" title="Admin Panel">⚙️</button>
+    </div>
+
+    <script src="js/questions.js"></script>
+    <script src="js/quiz.js"></script>
+</body>
+</html>
