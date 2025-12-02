@@ -51,6 +51,7 @@ class SecurityQuizApp {
         document.getElementById('clearAllResults').addEventListener('click', () => this.clearAllResults());
         document.getElementById('addQuestionBtn').addEventListener('click', () => this.showAddQuestionModal());
         document.getElementById('addCategoryBtn').addEventListener('click', () => this.showAddCategoryModal());
+        document.getElementById('exportUserRankings').addEventListener('click', () => this.exportUserRankings());
         
         // Modal functionality
         this.setupModalEventListeners();
@@ -112,22 +113,15 @@ class SecurityQuizApp {
 
     userLogin() {
         const name = document.getElementById('userFullName').value.trim();
-        const email = document.getElementById('userEmail').value.trim();
         
-        if (!name || !email) {
-            this.showMessage('Please fill in all required fields.', 'error');
-            return;
-        }
-        
-        if (!this.isValidEmail(email)) {
-            this.showMessage('Please enter a valid email address.', 'error');
+        if (!name) {
+            this.showMessage('Please enter your name.', 'error');
             return;
         }
         
         this.currentUser = {
             name: name,
-            email: email,
-            department: document.getElementById('userDepartment').value.trim(),
+            department: document.getElementById('userDepartment').value.trim() || 'Not specified',
             loginTime: new Date().toISOString()
         };
         
@@ -140,8 +134,19 @@ class SecurityQuizApp {
         const username = document.getElementById('adminUsername').value.trim();
         const password = document.getElementById('adminPassword').value.trim();
         
-        if (username !== quizConfig.adminCredentials.username || password !== quizConfig.adminCredentials.password) {
-            this.showMessage('Invalid admin credentials.', 'error');
+        // Hardcoded credentials for reliability
+        const ADMIN_USERNAME = "axchibobAD";
+        const ADMIN_PASSWORD = "admin123";
+        
+        console.log('Admin login attempt:', { username, password });
+        
+        if (!username || !password) {
+            this.showMessage('Please enter both username and password.', 'error');
+            return;
+        }
+        
+        if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+            this.showMessage('Invalid admin credentials. Please check your username and password.', 'error');
             return;
         }
         
@@ -153,6 +158,7 @@ class SecurityQuizApp {
         document.getElementById('currentAdminName').textContent = username;
         this.showInterface('admin');
         this.loadAdminDashboard();
+        this.showMessage('Welcome to Admin Dashboard!', 'success');
     }
 
     logout() {
@@ -162,16 +168,11 @@ class SecurityQuizApp {
         
         // Clear forms
         document.getElementById('userFullName').value = '';
-        document.getElementById('userEmail').value = '';
         document.getElementById('userDepartment').value = '';
         document.getElementById('adminUsername').value = '';
         document.getElementById('adminPassword').value = '';
         
         this.showInterface('login');
-    }
-
-    isValidEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
 
     // Interface Management
@@ -403,7 +404,6 @@ class SecurityQuizApp {
         return {
             id: `result_${Date.now()}`,
             userName: this.currentUser.name,
-            userEmail: this.currentUser.email,
             userDepartment: this.currentUser.department,
             date: new Date().toISOString(),
             duration: duration,
@@ -419,21 +419,17 @@ class SecurityQuizApp {
     }
 
     displayResults(results) {
-        // Store results temporarily
         this.currentResults = results;
         
-        // Update overall score
         document.getElementById('overallScore').textContent = `${results.overallScore}%`;
         document.getElementById('scoreStatus').textContent = results.passed ? 'PASS' : 'FAIL';
         
         const scoreCard = document.getElementById('overallScoreCard');
         scoreCard.className = `overall-score ${results.passed ? 'pass' : 'fail'}`;
         
-        // Update title
         document.getElementById('resultsTitle').textContent = 
             results.passed ? '🎉 Congratulations! You Passed!' : '📚 Keep Studying - You Can Do Better!';
         
-        // Category results
         const categoryContainer = document.getElementById('categoryResults');
         categoryContainer.innerHTML = '';
         
@@ -471,7 +467,6 @@ class SecurityQuizApp {
         
         this.showMessage('Results submitted successfully! Thank you for taking the assessment.', 'success');
         
-        // Disable submit button
         document.getElementById('submitResults').disabled = true;
         document.getElementById('submitResults').textContent = 'Results Submitted';
     }
@@ -503,7 +498,6 @@ class SecurityQuizApp {
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(`${tabName}-tab`).classList.add('active');
         
-        // Load tab-specific data
         switch(tabName) {
             case 'dashboard':
                 this.loadAdminDashboard();
@@ -601,7 +595,7 @@ class SecurityQuizApp {
                 <div class="ranking-position">#${index + 1}</div>
                 <div class="ranking-info">
                     <div class="ranking-name">${result.userName}</div>
-                    <div class="ranking-details">${result.userDepartment || 'No department'}</div>
+                    <div class="ranking-details">${result.userDepartment}</div>
                 </div>
                 <div class="ranking-score">${result.overallScore}%</div>
             </div>
@@ -645,7 +639,7 @@ class SecurityQuizApp {
             <div class="ranking-item">
                 <div class="ranking-info">
                     <div class="ranking-name">${result.userName}</div>
-                    <div class="ranking-details">${result.userDepartment || 'No department'}</div>
+                    <div class="ranking-details">${result.userDepartment}</div>
                 </div>
                 <div class="ranking-score" style="color: #dc3545;">${result.overallScore}%</div>
             </div>
@@ -663,23 +657,19 @@ class SecurityQuizApp {
         
         let filteredResults = this.results.filter(r => r.submitted);
         
-        // Apply search filter
         if (searchTerm) {
             filteredResults = filteredResults.filter(result => 
                 result.userName.toLowerCase().includes(searchTerm) ||
-                result.userEmail.toLowerCase().includes(searchTerm) ||
                 (result.userDepartment && result.userDepartment.toLowerCase().includes(searchTerm))
             );
         }
         
-        // Apply status filter
         if (statusFilter) {
             filteredResults = filteredResults.filter(result => 
                 statusFilter === 'pass' ? result.passed : !result.passed
             );
         }
         
-        // Apply sorting
         filteredResults.sort((a, b) => {
             switch(sortBy) {
                 case 'score':
@@ -710,7 +700,6 @@ class SecurityQuizApp {
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>Email</th>
                     <th>Department</th>
                     <th>Score</th>
                     <th>Status</th>
@@ -723,8 +712,7 @@ class SecurityQuizApp {
                 ${results.map(result => `
                     <tr>
                         <td>${result.userName}</td>
-                        <td>${result.userEmail}</td>
-                        <td>${result.userDepartment || 'N/A'}</td>
+                        <td>${result.userDepartment}</td>
                         <td>${result.overallScore}%</td>
                         <td class="${result.passed ? 'status-pass' : 'status-fail'}">
                             ${result.passed ? '✅ PASS' : '❌ FAIL'}
@@ -986,7 +974,6 @@ class SecurityQuizApp {
             return;
         }
         
-        // Get best score for each user
         const userBestScores = {};
         submittedResults.forEach(result => {
             if (!userBestScores[result.userName] || result.overallScore > userBestScores[result.userName].overallScore) {
@@ -1003,7 +990,7 @@ class SecurityQuizApp {
                 <div class="ranking-position">#${index + 1}</div>
                 <div class="ranking-info">
                     <div class="ranking-name">${result.userName}</div>
-                    <div class="ranking-details">${result.userEmail} • ${result.userDepartment || 'No department'}</div>
+                    <div class="ranking-details">${result.userDepartment}</div>
                 </div>
                 <div class="ranking-score">${result.overallScore}%</div>
             </div>
@@ -1018,7 +1005,6 @@ class SecurityQuizApp {
     hideModal(modalId) {
         document.getElementById(modalId).style.display = 'none';
         
-        // Reset forms
         const form = document.querySelector(`#${modalId} form`);
         if (form) form.reset();
     }
@@ -1063,9 +1049,8 @@ class SecurityQuizApp {
         this.showMessage('Question added successfully!', 'success');
     }
 
-       addNewCategory() {
+    addNewCategory() {
         const categoryName = document.getElementById('categoryName').value.trim();
-        const categoryDescription = document.getElementById('categoryDescription').value.trim();
         
         if (!categoryName) {
             this.showMessage('Category name is required.', 'error');
@@ -1077,7 +1062,6 @@ class SecurityQuizApp {
             return;
         }
         
-        // Add new category
         questionBank[categoryName] = [];
         quizConfig.categories = Object.keys(questionBank);
         
@@ -1092,8 +1076,8 @@ class SecurityQuizApp {
         const question = questionBank[category].find(q => q.id === questionId);
         if (!question) return;
         
-        // Populate edit form
         document.getElementById('editQuestionId').value = questionId;
+        document.getElementById('editOriginalCategory').value = category;
         document.getElementById('editQuestionCategory').value = category;
         document.getElementById('editQuestionText').value = question.question;
         document.getElementById('editOptionA').value = question.options[0];
@@ -1109,7 +1093,7 @@ class SecurityQuizApp {
 
     updateQuestion() {
         const questionId = document.getElementById('editQuestionId').value;
-        const oldCategory = document.getElementById('editQuestionCategory').value;
+        const oldCategory = document.getElementById('editOriginalCategory').value;
         const newCategory = document.getElementById('editQuestionCategory').value;
         
         const updatedQuestion = {
@@ -1125,14 +1109,11 @@ class SecurityQuizApp {
             explanation: document.getElementById('editExplanation').value
         };
         
-        // Find and update the question
         const questionIndex = questionBank[oldCategory].findIndex(q => q.id === questionId);
         if (questionIndex !== -1) {
             if (oldCategory === newCategory) {
-                // Update in same category
                 questionBank[oldCategory][questionIndex] = updatedQuestion;
             } else {
-                // Move to different category
                 questionBank[oldCategory].splice(questionIndex, 1);
                 if (!questionBank[newCategory]) {
                     questionBank[newCategory] = [];
@@ -1185,6 +1166,28 @@ class SecurityQuizApp {
         this.showMessage('Results exported successfully!', 'success');
     }
 
+    exportUserRankings() {
+        const submittedResults = this.results.filter(r => r.submitted);
+        if (submittedResults.length === 0) {
+            this.showMessage('No rankings to export.', 'info');
+            return;
+        }
+        
+        const userBestScores = {};
+        submittedResults.forEach(result => {
+            if (!userBestScores[result.userName] || result.overallScore > userBestScores[result.userName].overallScore) {
+                userBestScores[result.userName] = result;
+            }
+        });
+        
+        const rankings = Object.values(userBestScores)
+            .sort((a, b) => b.overallScore - a.overallScore);
+        
+        const csv = this.convertResultToCSV(rankings);
+        this.downloadCSV(csv, `cgf_user_rankings_${new Date().toISOString().split('T')[0]}.csv`);
+        this.showMessage('Rankings exported successfully!', 'success');
+    }
+
     clearAllResults() {
         if (confirm('Are you sure you want to clear all results? This action cannot be undone.')) {
             this.results = [];
@@ -1197,15 +1200,14 @@ class SecurityQuizApp {
 
     convertResultToCSV(results) {
         const headers = [
-            'Name', 'Email', 'Department', 'Date', 'Overall Score', 'Status', 
+            'Name', 'Department', 'Date', 'Overall Score', 'Status', 
             'Duration (seconds)', 'Physical Security', 'Access Control', 
             'Data Protection', 'Incident Response'
         ];
         
         const rows = results.map(result => [
             result.userName,
-            result.userEmail,
-            result.userDepartment || 'N/A',
+            result.userDepartment,
             new Date(result.submittedAt).toLocaleString(),
             `${result.overallScore}%`,
             result.passed ? 'PASS' : 'FAIL',
@@ -1244,14 +1246,12 @@ class SecurityQuizApp {
     }
 
     showMessage(text, type) {
-        // Remove existing messages
         document.querySelectorAll('.message').forEach(msg => msg.remove());
         
         const message = document.createElement('div');
         message.className = `message ${type}`;
         message.textContent = text;
         
-        // Find appropriate container
         let container = null;
         if (this.currentInterface === 'login') {
             container = document.querySelector('.login-card');
@@ -1264,7 +1264,6 @@ class SecurityQuizApp {
         if (container) {
             container.insertBefore(message, container.firstChild);
             
-            // Auto-remove after 5 seconds
             setTimeout(() => {
                 if (message.parentNode) {
                     message.remove();
@@ -1272,25 +1271,9 @@ class SecurityQuizApp {
             }, 5000);
         }
     }
-
-    // Utility Methods
-    formatDuration(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
-
-    formatDate(dateString) {
-        return new Date(dateString).toLocaleString();
-    }
-
-    // Global method for onclick handlers
-    static getInstance() {
-        return window.quiz;
-    }
 }
 
-// Initialize the application when DOM is loaded
+// Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     window.quiz = new SecurityQuizApp();
 });
@@ -1320,14 +1303,5 @@ function deleteCategory(categoryName) {
 window.addEventListener('click', (e) => {
     if (e.target.classList.contains('modal')) {
         e.target.style.display = 'none';
-    }
-});
-
-// Prevent form submission on Enter key in search fields
-document.addEventListener('keypress', (e) => {
-    if (e.target.type === 'search' || e.target.id.includes('search')) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-        }
     }
 });
