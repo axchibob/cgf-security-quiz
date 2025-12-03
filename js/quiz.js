@@ -1,8 +1,8 @@
 // GitHub Gist Configuration
 const GIST_CONFIG = {
-    token: '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', // Replace with your token from Step 2
-    gistId: '81b5e55365cd455cd60148740a8d0935',     // Replace with your gist ID from Step 3
-    filename: 'cgf-quiz-data.json'
+    token: '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', // Updated to match Tampermonkey
+    gistId: '38fef4563063be51748a1a950448c90e',     // Updated to match Tampermonkey
+    filename: 'cgf-quiz-questions.json'              // Updated to match Tampermonkey
 };
 
 // GitHub API Helper Class
