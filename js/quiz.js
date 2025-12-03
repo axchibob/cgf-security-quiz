@@ -13,10 +13,27 @@ class GistAPI {
 
     async loadData() {
         try {
+            console.log('Loading data from Gist...');
             const response = await fetch(`${this.baseURL}/${GIST_CONFIG.gistId}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const gist = await response.json();
+            
+            if (!gist.files || !gist.files[GIST_CONFIG.filename]) {
+                console.log('Gist file not found, returning empty array');
+                return [];
+            }
+            
             const content = gist.files[GIST_CONFIG.filename].content;
-            return JSON.parse(content);
+            console.log('Raw content from Gist:', content);
+            
+            const data = JSON.parse(content);
+            console.log('Parsed data:', data);
+            
+            return Array.isArray(data) ? data : [];
         } catch (error) {
             console.error('Error loading from Gist:', error);
             return [];
@@ -25,6 +42,8 @@ class GistAPI {
 
     async saveData(data) {
         try {
+            console.log('Saving data to Gist:', data);
+            
             const response = await fetch(`${this.baseURL}/${GIST_CONFIG.gistId}`, {
                 method: 'PATCH',
                 headers: {
@@ -41,9 +60,11 @@ class GistAPI {
             });
             
             if (response.ok) {
+                console.log('Successfully saved to Gist');
                 return { success: true };
             } else {
-                throw new Error(`HTTP ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
         } catch (error) {
             console.error('Error saving to Gist:', error);
@@ -65,14 +86,25 @@ class SecurityQuizApp {
         this.results = [];
         this.currentInterface = 'login';
         this.gistAPI = new GistAPI();
+        this.isLoading = false;
         
         this.initializeApp();
     }
 
     async initializeApp() {
-        await this.loadResults();
-        this.setupEventListeners();
-        this.showScreen('login-screen');
+        this.isLoading = true;
+        console.log('Initializing app...');
+        
+        try {
+            await this.loadResults();
+            console.log('Results loaded, setting up event listeners...');
+            this.setupEventListeners();
+            this.showScreen('login-screen');
+        } catch (error) {
+            console.error('Error initializing app:', error);
+        } finally {
+            this.isLoading = false;
+        }
     }
 
     setupEventListeners() {
@@ -185,7 +217,7 @@ class SecurityQuizApp {
         this.loadWelcomeScreen();
     }
 
-    adminLogin() {
+    async adminLogin() {
         const username = document.getElementById('adminUsername').value.trim();
         const password = document.getElementById('adminPassword').value.trim();
         
@@ -212,6 +244,10 @@ class SecurityQuizApp {
         
         document.getElementById('currentAdminName').textContent = username;
         this.showInterface('admin');
+        
+        // Reload results when admin logs in
+        this.showMessage('Loading latest data...', 'info');
+        await this.loadResults();
         this.loadAdminDashboard();
         this.showMessage('Welcome to Admin Dashboard!', 'success');
     }
@@ -457,7 +493,7 @@ class SecurityQuizApp {
         const passed = overallScore >= quizConfig.passingScore;
         
         return {
-            id: `result_${Date.now()}`,
+            id: `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             userName: this.currentUser.name,
             userDepartment: this.currentUser.department,
             date: new Date().toISOString(),
@@ -514,19 +550,30 @@ class SecurityQuizApp {
     async submitResults() {
         if (!this.currentResults) return;
         
-        this.currentResults.submitted = true;
-        this.currentResults.submittedAt = new Date().toISOString();
+        // Disable button to prevent double submission
+        const submitBtn = document.getElementById('submitResults');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
         
-        // Add to results array
-        this.results.push(this.currentResults);
-        
-        // Save to both local and cloud
-        await this.saveResults();
-        
-        this.showMessage('Results submitted successfully! Thank you for taking the assessment.', 'success');
-        
-        document.getElementById('submitResults').disabled = true;
-        document.getElementById('submitResults').textContent = 'Results Submitted';
+        try {
+            this.currentResults.submitted = true;
+            this.currentResults.submittedAt = new Date().toISOString();
+            
+            // Add to results array
+            this.results.push(this.currentResults);
+            
+            // Save to both local and cloud
+            await this.saveResults();
+            
+            this.showMessage('Results submitted successfully! Thank you for taking the assessment.', 'success');
+            
+            submitBtn.textContent = 'Results Submitted';
+        } catch (error) {
+            console.error('Error submitting results:', error);
+            this.showMessage('Error submitting results. Please try again.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Results';
+        }
     }
 
     retakeQuiz() {
@@ -541,7 +588,10 @@ class SecurityQuizApp {
     }
 
     // Admin Functionality
-    loadAdminDashboard() {
+    async loadAdminDashboard() {
+        // Refresh data first
+        await this.loadResults();
+        
         this.updateDashboardStats();
         this.loadCategoryRanking();
         this.loadTopPerformers();
@@ -549,12 +599,18 @@ class SecurityQuizApp {
         this.loadLowPerformers();
     }
 
-    switchAdminTab(tabName) {
+    async switchAdminTab(tabName) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(`${tabName}-tab`).classList.add('active');
+        
+        // Refresh data when switching to certain tabs
+        if (['dashboard', 'results', 'analytics', 'users'].includes(tabName)) {
+            this.showMessage('Refreshing data...', 'info');
+            await this.loadResults();
+        }
         
         switch(tabName) {
             case 'dashboard':
@@ -589,6 +645,8 @@ class SecurityQuizApp {
         document.getElementById('totalAttempts').textContent = totalAttempts;
         document.getElementById('avgScore').textContent = `${avgScore}%`;
         document.getElementById('passRate').textContent = `${passRate}%`;
+        
+        console.log('Dashboard stats updated:', { totalUsers, totalAttempts, avgScore, passRate });
     }
 
     loadCategoryRanking() {
@@ -1310,27 +1368,43 @@ class SecurityQuizApp {
     }
 
     async loadResults() {
-        // Show loading message
+        if (this.isLoading) return;
+        
+        this.isLoading = true;
         console.log('Loading results from cloud...');
         
-        // Load from Gist
-        const cloudResults = await this.gistAPI.loadData();
-        
-        // Load from localStorage as backup
-        const localResults = JSON.parse(localStorage.getItem('cgf-quiz-results') || '[]');
-        
-        // Merge results (cloud takes priority)
-        const allResults = [...cloudResults];
-        
-        // Add any local results that aren't in cloud
-        localResults.forEach(localResult => {
-            if (!cloudResults.find(cr => cr.id === localResult.id)) {
-                allResults.push(localResult);
-            }
-        });
-        
-        this.results = allResults;
-        console.log(`Loaded ${this.results.length} results`);
+        try {
+            // Load from Gist
+            const cloudResults = await this.gistAPI.loadData();
+            console.log('Cloud results loaded:', cloudResults);
+            
+            // Load from localStorage as backup
+            const localResults = JSON.parse(localStorage.getItem('cgf-quiz-results') || '[]');
+            console.log('Local results loaded:', localResults);
+            
+            // Merge results (cloud takes priority)
+            const allResults = [...cloudResults];
+            
+            // Add any local results that aren't in cloud
+            localResults.forEach(localResult => {
+                if (!cloudResults.find(cr => cr.id === localResult.id)) {
+                    allResults.push(localResult);
+                }
+            });
+            
+            this.results = allResults;
+            console.log(`Total results loaded: ${this.results.length}`);
+            
+            // Update localStorage with merged results
+            localStorage.setItem('cgf-quiz-results', JSON.stringify(this.results));
+            
+        } catch (error) {
+            console.error('Error loading results:', error);
+            // Fallback to localStorage only
+            this.results = JSON.parse(localStorage.getItem('cgf-quiz-results') || '[]');
+        } finally {
+            this.isLoading = false;
+        }
     }
 
     showMessage(text, type) {
