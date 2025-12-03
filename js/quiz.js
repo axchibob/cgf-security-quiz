@@ -1,3 +1,57 @@
+// GitHub Gist Configuration
+const GIST_CONFIG = {
+    token: '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', // Replace with your token from Step 2
+    gistId: '81b5e55365cd455cd60148740a8d0935',     // Replace with your gist ID from Step 3
+    filename: 'cgf-quiz-data.json'
+};
+
+// GitHub API Helper Class
+class GistAPI {
+    constructor() {
+        this.baseURL = 'https://api.github.com/gists';
+    }
+
+    async loadData() {
+        try {
+            const response = await fetch(`${this.baseURL}/${GIST_CONFIG.gistId}`);
+            const gist = await response.json();
+            const content = gist.files[GIST_CONFIG.filename].content;
+            return JSON.parse(content);
+        } catch (error) {
+            console.error('Error loading from Gist:', error);
+            return [];
+        }
+    }
+
+    async saveData(data) {
+        try {
+            const response = await fetch(`${this.baseURL}/${GIST_CONFIG.gistId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `token ${GIST_CONFIG.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    files: {
+                        [GIST_CONFIG.filename]: {
+                            content: JSON.stringify(data, null, 2)
+                        }
+                    }
+                })
+            });
+            
+            if (response.ok) {
+                return { success: true };
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error saving to Gist:', error);
+            return { success: false, error: error.message };
+        }
+    }
+}
+
 // CGF Security Quiz - Main Application Logic
 class SecurityQuizApp {
     constructor() {
@@ -10,12 +64,13 @@ class SecurityQuizApp {
         this.timer = null;
         this.results = [];
         this.currentInterface = 'login';
+        this.gistAPI = new GistAPI();
         
         this.initializeApp();
     }
 
-    initializeApp() {
-        this.loadResults();
+    async initializeApp() {
+        await this.loadResults();
         this.setupEventListeners();
         this.showScreen('login-screen');
     }
@@ -456,14 +511,17 @@ class SecurityQuizApp {
         return 'poor';
     }
 
-    submitResults() {
+    async submitResults() {
         if (!this.currentResults) return;
         
         this.currentResults.submitted = true;
         this.currentResults.submittedAt = new Date().toISOString();
         
+        // Add to results array
         this.results.push(this.currentResults);
-        this.saveResults();
+        
+        // Save to both local and cloud
+        await this.saveResults();
         
         this.showMessage('Results submitted successfully! Thank you for taking the assessment.', 'success');
         
@@ -746,10 +804,10 @@ class SecurityQuizApp {
               ).join('\n'));
     }
 
-    deleteResult(resultId) {
+    async deleteResult(resultId) {
         if (confirm('Are you sure you want to delete this result?')) {
             this.results = this.results.filter(r => r.id !== resultId);
-            this.saveResults();
+            await this.saveResults();
             this.filterResults();
             this.updateDashboardStats();
             this.showMessage('Result deleted successfully.', 'success');
@@ -1188,10 +1246,10 @@ class SecurityQuizApp {
         this.showMessage('Rankings exported successfully!', 'success');
     }
 
-    clearAllResults() {
+    async clearAllResults() {
         if (confirm('Are you sure you want to clear all results? This action cannot be undone.')) {
             this.results = [];
-            this.saveResults();
+            await this.saveResults();
             this.loadAdminDashboard();
             this.loadAllResults();
             this.showMessage('All results cleared.', 'info');
@@ -1236,13 +1294,43 @@ class SecurityQuizApp {
         window.URL.revokeObjectURL(url);
     }
 
-    saveResults() {
+    async saveResults() {
+        // Save to localStorage first (immediate backup)
         localStorage.setItem('cgf-quiz-results', JSON.stringify(this.results));
+        
+        // Save to Gist (cloud storage)
+        const response = await this.gistAPI.saveData(this.results);
+        
+        if (response.success) {
+            console.log('Results saved to cloud successfully');
+        } else {
+            console.error('Failed to save to cloud:', response.error);
+            this.showMessage('Warning: Results saved locally but failed to sync to cloud.', 'error');
+        }
     }
 
-    loadResults() {
-        const saved = localStorage.getItem('cgf-quiz-results');
-        this.results = saved ? JSON.parse(saved) : [];
+    async loadResults() {
+        // Show loading message
+        console.log('Loading results from cloud...');
+        
+        // Load from Gist
+        const cloudResults = await this.gistAPI.loadData();
+        
+        // Load from localStorage as backup
+        const localResults = JSON.parse(localStorage.getItem('cgf-quiz-results') || '[]');
+        
+        // Merge results (cloud takes priority)
+        const allResults = [...cloudResults];
+        
+        // Add any local results that aren't in cloud
+        localResults.forEach(localResult => {
+            if (!cloudResults.find(cr => cr.id === localResult.id)) {
+                allResults.push(localResult);
+            }
+        });
+        
+        this.results = allResults;
+        console.log(`Loaded ${this.results.length} results`);
     }
 
     showMessage(text, type) {
