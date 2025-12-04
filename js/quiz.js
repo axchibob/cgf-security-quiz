@@ -1,8 +1,8 @@
 // GitHub Gist Configuration
 const GIST_CONFIG = {
-    token: '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', // Updated to match Tampermonkey
-    gistId: '38fef4563063be51748a1a950448c90e',     // Updated to match Tampermonkey
-    filename: 'cgf-quiz-questions.json'              // Updated to match Tampermonkey
+    token: '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',
+    gistId: '38fef4563063be51748a1a950448c90e',
+    filename: 'cgf-quiz-questions.json'
 };
 
 // GitHub API Helper Class
@@ -73,6 +73,117 @@ class GistAPI {
     }
 }
 
+// Enhanced Category Management Class
+class CategoryManager {
+    constructor(quizApp) {
+        this.quiz = quizApp;
+    }
+
+    async addCategory(categoryData) {
+        const { name, description } = categoryData;
+        
+        if (!name || name.trim() === '') {
+            throw new Error('Category name is required');
+        }
+
+        if (questionBank[name]) {
+            throw new Error('Category already exists');
+        }
+
+        // Add to question bank
+        questionBank[name] = [];
+        quizConfig.categories = Object.keys(questionBank);
+
+        // Save to cloud
+        await this.syncToCloud();
+        
+        return { success: true, message: 'Category added successfully' };
+    }
+
+    async deleteCategory(categoryName) {
+        if (!questionBank[categoryName]) {
+            throw new Error('Category not found');
+        }
+
+        // Remove from question bank
+        delete questionBank[categoryName];
+        quizConfig.categories = Object.keys(questionBank);
+
+        // Save to cloud
+        await this.syncToCloud();
+        
+        return { success: true, message: 'Category deleted successfully' };
+    }
+
+    async addQuestion(questionData) {
+        const { category, question, options, correct, explanation } = questionData;
+        
+        if (!questionBank[category]) {
+            questionBank[category] = [];
+        }
+
+        const newQuestion = {
+            id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            question: question,
+            options: options,
+            correct: correct,
+            explanation: explanation || ''
+        };
+
+        questionBank[category].push(newQuestion);
+        
+        // Save to cloud
+        await this.syncToCloud();
+        
+        return { success: true, message: 'Question added successfully' };
+    }
+
+    async deleteQuestion(questionId, category) {
+        if (!questionBank[category]) {
+            throw new Error('Category not found');
+        }
+
+        const questionIndex = questionBank[category].findIndex(q => q.id === questionId);
+        if (questionIndex === -1) {
+            throw new Error('Question not found');
+        }
+
+        questionBank[category].splice(questionIndex, 1);
+        
+        // Save to cloud
+        await this.syncToCloud();
+        
+        return { success: true, message: 'Question deleted successfully' };
+    }
+
+    async syncToCloud() {
+        // Convert questionBank to array format for cloud storage
+        const questionsArray = [];
+        Object.keys(questionBank).forEach(category => {
+            questionBank[category].forEach(question => {
+                questionsArray.push({
+                    ...question,
+                    category: category
+                });
+            });
+        });
+
+        // Save to localStorage
+        localStorage.setItem('cgf-question-bank', JSON.stringify(questionBank));
+        
+        // If Gist API is available, sync to cloud
+        if (this.quiz.gistAPI) {
+            try {
+                await this.quiz.gistAPI.saveData(questionsArray);
+                console.log('✅ Questions synced to cloud');
+            } catch (error) {
+                console.error('❌ Failed to sync to cloud:', error);
+                throw new Error('Failed to sync to cloud: ' + error.message);
+            }
+        }
+    }
+}
+
 // CGF Security Quiz - Main Application Logic
 class SecurityQuizApp {
     constructor() {
@@ -87,6 +198,7 @@ class SecurityQuizApp {
         this.currentInterface = 'login';
         this.gistAPI = new GistAPI();
         this.isLoading = false;
+        this.categoryManager = new CategoryManager(this);
         
         this.initializeApp();
     }
@@ -1134,58 +1246,65 @@ class SecurityQuizApp {
         this.showModal('addCategoryModal');
     }
 
-    addNewQuestion() {
-        const category = document.getElementById('questionCategory').value;
-        const questionText = document.getElementById('questionText').value;
-        const options = [
-            document.getElementById('optionA').value,
-            document.getElementById('optionB').value,
-            document.getElementById('optionC').value,
-            document.getElementById('optionD').value
-        ];
-        const correct = parseInt(document.getElementById('correctAnswer').value);
-        const explanation = document.getElementById('explanation').value;
+    // Enhanced add category method with cloud sync
+    async addNewCategory() {
+        const categoryName = document.getElementById('categoryName').value.trim();
+        const categoryDescription = document.getElementById('categoryDescription').value.trim();
         
-        const newQuestion = {
-            id: `custom_${Date.now()}`,
-            question: questionText,
-            options: options,
-            correct: correct,
-            explanation: explanation
-        };
-        
-        if (!questionBank[category]) {
-            questionBank[category] = [];
+        try {
+            await this.categoryManager.addCategory({
+                name: categoryName,
+                description: categoryDescription
+            });
+            
+            this.hideModal('addCategoryModal');
+            this.loadCategories();
+            this.populateCategorySelects();
+            this.showMessage('Category added and synced to cloud!', 'success');
+        } catch (error) {
+            this.showMessage(error.message, 'error');
         }
-        questionBank[category].push(newQuestion);
-        
-        saveCustomQuestions();
-        this.hideModal('addQuestionModal');
-        this.loadQuestions();
-        this.showMessage('Question added successfully!', 'success');
     }
 
-    addNewCategory() {
-        const categoryName = document.getElementById('categoryName').value.trim();
-        
-        if (!categoryName) {
-            this.showMessage('Category name is required.', 'error');
-            return;
+    // Enhanced delete category method with cloud sync
+    async deleteCategory(categoryName) {
+        if (confirm(`Are you sure you want to delete "${categoryName}" and all its questions? This will sync to cloud.`)) {
+            try {
+                await this.categoryManager.deleteCategory(categoryName);
+                
+                this.loadCategories();
+                this.populateCategorySelects();
+                this.showMessage('Category deleted and synced to cloud!', 'success');
+            } catch (error) {
+                this.showMessage(error.message, 'error');
+            }
         }
-        
-        if (questionBank[categoryName]) {
-            this.showMessage('Category already exists.', 'error');
-            return;
+    }
+
+    // Enhanced add question method with cloud sync
+    async addNewQuestion() {
+        const questionData = {
+            category: document.getElementById('questionCategory').value,
+            question: document.getElementById('questionText').value,
+            options: [
+                document.getElementById('optionA').value,
+                document.getElementById('optionB').value,
+                document.getElementById('optionC').value,
+                document.getElementById('optionD').value
+            ],
+            correct: parseInt(document.getElementById('correctAnswer').value),
+            explanation: document.getElementById('explanation').value
+        };
+
+        try {
+            await this.categoryManager.addQuestion(questionData);
+            
+            this.hideModal('addQuestionModal');
+            this.loadQuestions();
+            this.showMessage('Question added and synced to cloud!', 'success');
+        } catch (error) {
+            this.showMessage(error.message, 'error');
         }
-        
-        questionBank[categoryName] = [];
-        quizConfig.categories = Object.keys(questionBank);
-        
-        saveCustomCategories();
-        this.hideModal('addCategoryModal');
-        this.loadCategories();
-        this.populateCategorySelects();
-        this.showMessage('Category added successfully!', 'success');
     }
 
     editQuestion(questionId, category) {
@@ -1207,7 +1326,7 @@ class SecurityQuizApp {
         this.showModal('editQuestionModal');
     }
 
-    updateQuestion() {
+    async updateQuestion() {
         const questionId = document.getElementById('editQuestionId').value;
         const oldCategory = document.getElementById('editOriginalCategory').value;
         const newCategory = document.getElementById('editQuestionCategory').value;
@@ -1225,47 +1344,46 @@ class SecurityQuizApp {
             explanation: document.getElementById('editExplanation').value
         };
         
-        const questionIndex = questionBank[oldCategory].findIndex(q => q.id === questionId);
-        if (questionIndex !== -1) {
-            if (oldCategory === newCategory) {
-                questionBank[oldCategory][questionIndex] = updatedQuestion;
+        try {
+            // Delete from old category and add to new category
+            await this.categoryManager.deleteQuestion(questionId, oldCategory);
+            
+            if (oldCategory !== newCategory) {
+                await this.categoryManager.addQuestion({
+                    category: newCategory,
+                    question: updatedQuestion.question,
+                    options: updatedQuestion.options,
+                    correct: updatedQuestion.correct,
+                    explanation: updatedQuestion.explanation
+                });
             } else {
-                questionBank[oldCategory].splice(questionIndex, 1);
-                if (!questionBank[newCategory]) {
-                    questionBank[newCategory] = [];
+                // Same category, just update in place
+                const questionIndex = questionBank[oldCategory].findIndex(q => q.id === questionId);
+                if (questionIndex !== -1) {
+                    questionBank[oldCategory][questionIndex] = updatedQuestion;
+                    await this.categoryManager.syncToCloud();
                 }
-                questionBank[newCategory].push(updatedQuestion);
             }
             
-            saveCustomQuestions();
             this.hideModal('editQuestionModal');
             this.loadQuestions();
-            this.showMessage('Question updated successfully!', 'success');
+            this.showMessage('Question updated and synced to cloud!', 'success');
+        } catch (error) {
+            this.showMessage(error.message, 'error');
         }
     }
 
-    deleteQuestion(questionId, category) {
-        if (confirm('Are you sure you want to delete this question?')) {
-            const questionIndex = questionBank[category].findIndex(q => q.id === questionId);
-            if (questionIndex !== -1) {
-                questionBank[category].splice(questionIndex, 1);
-                saveCustomQuestions();
+    // Enhanced delete question method with cloud sync
+    async deleteQuestion(questionId, category) {
+        if (confirm('Are you sure you want to delete this question? This will sync to cloud.')) {
+            try {
+                await this.categoryManager.deleteQuestion(questionId, category);
+                
                 this.loadQuestions();
-                this.showMessage('Question deleted successfully.', 'success');
+                this.showMessage('Question deleted and synced to cloud!', 'success');
+            } catch (error) {
+                this.showMessage(error.message, 'error');
             }
-        }
-    }
-
-    deleteCategory(categoryName) {
-        if (confirm(`Are you sure you want to delete the category "${categoryName}" and all its questions?`)) {
-            delete questionBank[categoryName];
-            quizConfig.categories = Object.keys(questionBank);
-            
-            saveCustomCategories();
-            saveCustomQuestions();
-            this.loadCategories();
-            this.populateCategorySelects();
-            this.showMessage('Category deleted successfully.', 'success');
         }
     }
 
