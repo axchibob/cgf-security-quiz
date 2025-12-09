@@ -13,6 +13,7 @@
             <p>Test your security knowledge across 4 key categories</p>
         </header>
 
+        <!-- Welcome Screen -->
         <div id="welcome-screen" class="screen active">
             <div class="welcome-card">
                 <h2>Welcome to the Assessment</h2>
@@ -41,11 +42,13 @@
                 
                 <div class="user-input">
                     <input type="text" id="userName" placeholder="Enter your name" required>
+                    <input type="email" id="userEmail" placeholder="Enter your email (optional)">
                     <button id="startQuiz" class="btn-primary">Start Assessment</button>
                 </div>
             </div>
         </div>
 
+        <!-- Quiz Screen -->
         <div id="quiz-screen" class="screen">
             <div class="quiz-header">
                 <div class="progress-info">
@@ -72,6 +75,7 @@
             </div>
         </div>
 
+        <!-- Results Screen -->
         <div id="results-screen" class="screen">
             <div class="results-card">
                 <h2>🎉 Assessment Complete!</h2>
@@ -94,44 +98,209 @@
             </div>
         </div>
 
+        <!-- Admin Screen -->
         <div id="admin-screen" class="screen">
             <div class="admin-panel">
-                <h2>⚙️ Admin Panel</h2>
+                <div class="admin-header">
+                    <h2>⚙️ Admin Dashboard</h2>
+                    <button id="closeAdmin" class="btn-secondary">← Back to Quiz</button>
+                </div>
+                
                 <div class="admin-tabs">
-                    <button class="tab-btn active" data-tab="questions">Questions</button>
-                    <button class="tab-btn" data-tab="results">Results</button>
+                    <button class="tab-btn active" data-tab="overview">Overview</button>
+                    <button class="tab-btn" data-tab="questions">Questions</button>
+                    <button class="tab-btn" data-tab="results">All Results</button>
                     <button class="tab-btn" data-tab="analytics">Analytics</button>
+                    <button class="tab-btn" data-tab="shared">Shared Results</button>
                 </div>
                 
+                <!-- Overview Tab -->
+                <div class="tab-content active" id="overview-tab">
+                    <h3>📊 Quick Stats</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalUsers">0</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalAttempts">0</div>
+                            <div class="stat-label">Total Attempts</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="avgScore">0%</div>
+                            <div class="stat-label">Average Score</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="passRate">0%</div>
+                            <div class="stat-label">Pass Rate</div>
+                        </div>
+                    </div>
+                    
+                    <div class="recent-activity">
+                        <h4>Recent Activity</h4>
+                        <div id="recentResults"></div>
+                    </div>
+                </div>
+                
+                <!-- Questions Tab -->
                 <div class="tab-content" id="questions-tab">
-                    <h3>Question Management</h3>
-                    <div id="questionsList">
-                        <!-- Questions will be loaded here -->
+                    <div class="tab-header">
+                        <h3>📝 Question Bank</h3>
+                        <button id="addQuestionBtn" class="btn-primary">+ Add Question</button>
                     </div>
+                    <div id="questionsList"></div>
                 </div>
                 
+                <!-- Results Tab -->
                 <div class="tab-content" id="results-tab">
-                    <h3>All Results</h3>
-                    <div id="allResultsList">
-                        <!-- Results will be loaded here -->
+                    <div class="tab-header">
+                        <h3>📋 Local Results</h3>
+                        <div class="admin-actions">
+                            <button id="exportAllBtn" class="btn-primary">📥 Export All</button>
+                            <button id="clearAllBtn" class="btn-secondary">🗑️ Clear All</button>
+                        </div>
                     </div>
+                    <div id="allResultsList"></div>
                 </div>
                 
+                <!-- Analytics Tab -->
                 <div class="tab-content" id="analytics-tab">
-                    <h3>Analytics Dashboard</h3>
-                    <div id="analyticsContent">
-                        <!-- Analytics will be loaded here -->
+                    <h3>📈 Detailed Analytics</h3>
+                    <div id="analyticsContent"></div>
+                </div>
+
+                <!-- Shared Results Tab -->
+                <div class="tab-content" id="shared-tab">
+                    <div class="tab-header">
+                        <h3>🌐 Shared Results Database</h3>
+                        <div class="admin-actions">
+                            <button id="refreshSharedBtn" class="btn-primary">🔄 Refresh</button>
+                            <button id="exportSharedBtn" class="btn-primary">📥 Export Shared</button>
+                            <button id="syncResultsBtn" class="btn-secondary">📤 Sync Local to Shared</button>
+                        </div>
+                    </div>
+                    <div class="shared-info">
+                        <p><strong>Shared Database URL:</strong> <span id="sharedDbUrl">Not configured</span></p>
+                        <p><strong>Last Sync:</strong> <span id="lastSync">Never</span></p>
+                        <p><strong>Total Shared Results:</strong> <span id="sharedCount">0</span></p>
+                    </div>
+                    <div id="sharedResultsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Admin Access -->
+    <div class="admin-access">
+        <button id="adminToggle" class="admin-btn" title="Admin Dashboard">
+            <span class="admin-icon">⚙️</span>
+            <span class="admin-text">Admin</span>
+        </button>
+    </div>
+
+    <!-- Add Question Modal -->
+    <div id="addQuestionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Question</h3>
+                <button id="closeModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addQuestionForm">
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <select id="questionCategory" required>
+                            <option value="Physical Security">Physical Security</option>
+                            <option value="Access Control">Access Control</option>
+                            <option value="Data Protection">Data Protection</option>
+                            <option value="Incident Response">Incident Response</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Question:</label>
+                        <textarea id="questionText" required placeholder="Enter your question here..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Option A:</label>
+                        <input type="text" id="optionA" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Option B:</label>
+                        <input type="text" id="optionB" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Option C:</label>
+                        <input type="text" id="optionC" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Option D:</label>
+                        <input type="text" id="optionD" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Correct Answer:</label>
+                        <select id="correctAnswer" required>
+                            <option value="0">Option A</option>
+                            <option value="1">Option B</option>
+                            <option value="2">Option C</option>
+                            <option value="3">Option D</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Explanation:</label>
+                        <textarea id="explanation" placeholder="Explain why this is the correct answer..."></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Add Question</button>
+                        <button type="button" id="cancelAdd" class="btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared Database Config Modal -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configure Shared Database</h3>
+                <button id="closeConfigModal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="config-options">
+                    <h4>Choose Your Sharing Method:</h4>
+                    
+                    <div class="config-option" data-method="github">
+                        <h5>📁 GitHub Gist (Recommended)</h5>
+                        <p>Store results in a GitHub Gist for easy sharing</p>
+                        <button class="btn-primary">Setup GitHub Gist</button>
+                    </div>
+                    
+                    <div class="config-option" data-method="firebase">
+                        <h5>🔥 Firebase Database</h5>
+                        <p>Real-time database for instant result sharing</p>
+                        <button class="btn-primary">Setup Firebase</button>
+                    </div>
+                    
+                    <div class="config-option" data-method="json">
+                        <h5>📄 JSON File Sharing</h5>
+                        <p>Simple file-based sharing via URL</p>
+                        <button class="btn-primary">Setup JSON Sharing</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="floating-admin">
-        <button id="adminToggle" title="Admin Panel">⚙️</button>
-    </div>
-
     <script src="js/questions.js"></script>
+    <script src="js/shared-results.js"></script>
     <script src="js/quiz.js"></script>
 </body>
 </html>
