@@ -1,418 +1,47 @@
-// GitHub Gist Configuration
-const GIST_CONFIG = {
-    token: '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',
-    gistId: '38fef4563063be51748a1a950448c90e',
-    filename: 'cgf-quiz-questions.json'
-};
-
-// GitHub API Helper Class
-class GistAPI {
-    constructor() {
-        this.baseURL = 'https://api.github.com/gists';
-    }
-
-    async loadData() {
-        try {
-            console.log('Loading data from Gist...');
-            const response = await fetch(`${this.baseURL}/${GIST_CONFIG.gistId}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const gist = await response.json();
-            
-            if (!gist.files || !gist.files[GIST_CONFIG.filename]) {
-                console.log('Gist file not found, returning empty array');
-                return [];
-            }
-            
-            const content = gist.files[GIST_CONFIG.filename].content;
-            console.log('Raw content from Gist:', content);
-            
-            const data = JSON.parse(content);
-            console.log('Parsed data:', data);
-            
-            return Array.isArray(data) ? data : [];
-        } catch (error) {
-            console.error('Error loading from Gist:', error);
-            return [];
-        }
-    }
-
-    async saveData(data) {
-        try {
-            console.log('Saving data to Gist:', data);
-            
-            const response = await fetch(`${this.baseURL}/${GIST_CONFIG.gistId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `token ${GIST_CONFIG.token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    files: {
-                        [GIST_CONFIG.filename]: {
-                            content: JSON.stringify(data, null, 2)
-                        }
-                    }
-                })
-            });
-            
-            if (response.ok) {
-                console.log('Successfully saved to Gist');
-                return { success: true };
-            } else {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-        } catch (error) {
-            console.error('Error saving to Gist:', error);
-            return { success: false, error: error.message };
-        }
-    }
-}
-
-// Enhanced Category Management Class
-class CategoryManager {
-    constructor(quizApp) {
-        this.quiz = quizApp;
-    }
-
-    async addCategory(categoryData) {
-        const { name, description } = categoryData;
-        
-        if (!name || name.trim() === '') {
-            throw new Error('Category name is required');
-        }
-
-        if (questionBank[name]) {
-            throw new Error('Category already exists');
-        }
-
-        // Add to question bank
-        questionBank[name] = [];
-        quizConfig.categories = Object.keys(questionBank);
-
-        // Save to cloud
-        await this.syncToCloud();
-        
-        return { success: true, message: 'Category added successfully' };
-    }
-
-    async deleteCategory(categoryName) {
-        if (!questionBank[categoryName]) {
-            throw new Error('Category not found');
-        }
-
-        // Remove from question bank
-        delete questionBank[categoryName];
-        quizConfig.categories = Object.keys(questionBank);
-
-        // Save to cloud
-        await this.syncToCloud();
-        
-        return { success: true, message: 'Category deleted successfully' };
-    }
-
-    async addQuestion(questionData) {
-        const { category, question, options, correct, explanation } = questionData;
-        
-        if (!questionBank[category]) {
-            questionBank[category] = [];
-        }
-
-        const newQuestion = {
-            id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            question: question,
-            options: options,
-            correct: correct,
-            explanation: explanation || ''
-        };
-
-        questionBank[category].push(newQuestion);
-        
-        // Save to cloud
-        await this.syncToCloud();
-        
-        return { success: true, message: 'Question added successfully' };
-    }
-
-    async deleteQuestion(questionId, category) {
-        if (!questionBank[category]) {
-            throw new Error('Category not found');
-        }
-
-        const questionIndex = questionBank[category].findIndex(q => q.id === questionId);
-        if (questionIndex === -1) {
-            throw new Error('Question not found');
-        }
-
-        questionBank[category].splice(questionIndex, 1);
-        
-        // Save to cloud
-        await this.syncToCloud();
-        
-        return { success: true, message: 'Question deleted successfully' };
-    }
-
-    async syncToCloud() {
-        // Convert questionBank to array format for cloud storage
-        const questionsArray = [];
-        Object.keys(questionBank).forEach(category => {
-            questionBank[category].forEach(question => {
-                questionsArray.push({
-                    ...question,
-                    category: category
-                });
-            });
-        });
-
-        // Save to localStorage
-        localStorage.setItem('cgf-question-bank', JSON.stringify(questionBank));
-        
-        // If Gist API is available, sync to cloud
-        if (this.quiz.gistAPI) {
-            try {
-                await this.quiz.gistAPI.saveData(questionsArray);
-                console.log('✅ Questions synced to cloud');
-            } catch (error) {
-                console.error('❌ Failed to sync to cloud:', error);
-                throw new Error('Failed to sync to cloud: ' + error.message);
-            }
-        }
-    }
-}
-
 // CGF Security Quiz - Main Application Logic
-class SecurityQuizApp {
+class SecurityQuiz {
     constructor() {
-        this.currentUser = null;
-        this.currentAdmin = null;
         this.currentQuiz = null;
         this.currentQuestionIndex = 0;
         this.userAnswers = [];
         this.startTime = null;
+        this.userName = '';
         this.timer = null;
         this.results = [];
-        this.currentInterface = 'login';
-        this.gistAPI = new GistAPI();
-        this.isLoading = false;
-        this.categoryManager = new CategoryManager(this);
         
         this.initializeApp();
     }
 
-    async initializeApp() {
-        this.isLoading = true;
-        console.log('Initializing app...');
-        
-        try {
-            await this.loadResults();
-            console.log('Results loaded, setting up event listeners...');
-            this.setupEventListeners();
-            this.showScreen('login-screen');
-        } catch (error) {
-            console.error('Error initializing app:', error);
-        } finally {
-            this.isLoading = false;
-        }
+    initializeApp() {
+        this.loadResults();
+        this.setupEventListeners();
+        this.showScreen('welcome-screen');
     }
 
     setupEventListeners() {
-        // Login functionality
-        document.querySelectorAll('.login-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => this.switchLoginTab(e.target.dataset.role));
-        });
-        
-        document.getElementById('userLoginBtn').addEventListener('click', () => this.userLogin());
-        document.getElementById('adminLoginBtn').addEventListener('click', () => this.adminLogin());
-        
-        // User interface
-        document.getElementById('userLogout').addEventListener('click', () => this.logout());
+        // Welcome screen
         document.getElementById('startQuiz').addEventListener('click', () => this.startQuiz());
+        
+        // Quiz navigation
         document.getElementById('nextBtn').addEventListener('click', () => this.nextQuestion());
         document.getElementById('prevBtn').addEventListener('click', () => this.previousQuestion());
+        
+        // Results screen
         document.getElementById('retakeBtn').addEventListener('click', () => this.retakeQuiz());
-        document.getElementById('exportUserBtn').addEventListener('click', () => this.exportUserResults());
-        document.getElementById('submitResults').addEventListener('click', () => this.submitResults());
+        document.getElementById('exportBtn').addEventListener('click', () => this.exportResults());
+        document.getElementById('viewAllResults').addEventListener('click', () => this.showAllResults());
         
-        // Admin interface
-        document.getElementById('adminLogout').addEventListener('click', () => this.logout());
+        // Admin panel
+        document.getElementById('adminToggle').addEventListener('click', () => this.toggleAdmin());
         
-        // Admin tabs
+        // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchAdminTab(e.target.dataset.tab));
+            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
         });
-        
-        // Admin actions
-        document.getElementById('exportAllResults').addEventListener('click', () => this.exportAllResults());
-        document.getElementById('clearAllResults').addEventListener('click', () => this.clearAllResults());
-        document.getElementById('addQuestionBtn').addEventListener('click', () => this.showAddQuestionModal());
-        document.getElementById('addCategoryBtn').addEventListener('click', () => this.showAddCategoryModal());
-        document.getElementById('exportUserRankings').addEventListener('click', () => this.exportUserRankings());
-        
-        // Modal functionality
-        this.setupModalEventListeners();
-        
-        // Search and filter functionality
-        this.setupSearchAndFilters();
-        
-        // Enter key support
-        document.getElementById('userFullName').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.userLogin();
-        });
-        document.getElementById('adminPassword').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.adminLogin();
-        });
-    }
 
-    setupModalEventListeners() {
-        // Question modal
-        document.getElementById('closeQuestionModal').addEventListener('click', () => this.hideModal('addQuestionModal'));
-        document.getElementById('cancelAddQuestion').addEventListener('click', () => this.hideModal('addQuestionModal'));
-        document.getElementById('addQuestionForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.addNewQuestion();
-        });
-        
-        // Category modal
-        document.getElementById('closeCategoryModal').addEventListener('click', () => this.hideModal('addCategoryModal'));
-        document.getElementById('cancelAddCategory').addEventListener('click', () => this.hideModal('addCategoryModal'));
-        document.getElementById('addCategoryForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.addNewCategory();
-        });
-        
-        // Edit modal
-        document.getElementById('closeEditModal').addEventListener('click', () => this.hideModal('editQuestionModal'));
-        document.getElementById('cancelEdit').addEventListener('click', () => this.hideModal('editQuestionModal'));
-        document.getElementById('editQuestionForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.updateQuestion();
-        });
-    }
-
-    setupSearchAndFilters() {
-        document.getElementById('searchResults').addEventListener('input', () => this.filterResults());
-        document.getElementById('filterStatus').addEventListener('change', () => this.filterResults());
-        document.getElementById('sortResults').addEventListener('change', () => this.filterResults());
-        document.getElementById('searchQuestions').addEventListener('input', () => this.filterQuestions());
-        document.getElementById('filterCategory').addEventListener('change', () => this.filterQuestions());
-    }
-
-    // Login System
-    switchLoginTab(role) {
-        document.querySelectorAll('.login-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.login-form').forEach(form => form.classList.remove('active'));
-        
-        document.querySelector(`[data-role="${role}"]`).classList.add('active');
-        document.getElementById(`${role}-login`).classList.add('active');
-    }
-
-    userLogin() {
-        const name = document.getElementById('userFullName').value.trim();
-        
-        if (!name) {
-            this.showMessage('Please enter your name.', 'error');
-            return;
-        }
-        
-        this.currentUser = {
-            name: name,
-            department: document.getElementById('userDepartment').value.trim() || 'Not specified',
-            loginTime: new Date().toISOString()
-        };
-        
-        document.getElementById('currentUserName').textContent = name;
-        this.showInterface('user');
-        this.loadWelcomeScreen();
-    }
-
-    async adminLogin() {
-        const username = document.getElementById('adminUsername').value.trim();
-        const password = document.getElementById('adminPassword').value.trim();
-        
-        // Hardcoded credentials for reliability
-        const ADMIN_USERNAME = "axchibobAD";
-        const ADMIN_PASSWORD = "admin123";
-        
-        console.log('Admin login attempt:', { username, password });
-        
-        if (!username || !password) {
-            this.showMessage('Please enter both username and password.', 'error');
-            return;
-        }
-        
-        if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
-            this.showMessage('Invalid admin credentials. Please check your username and password.', 'error');
-            return;
-        }
-        
-        this.currentAdmin = {
-            username: username,
-            loginTime: new Date().toISOString()
-        };
-        
-        document.getElementById('currentAdminName').textContent = username;
-        this.showInterface('admin');
-        
-        // Reload results when admin logs in
-        this.showMessage('Loading latest data...', 'info');
-        await this.loadResults();
-        this.loadAdminDashboard();
-        this.showMessage('Welcome to Admin Dashboard!', 'success');
-    }
-
-    logout() {
-        this.currentUser = null;
-        this.currentAdmin = null;
-        this.currentQuiz = null;
-        
-        // Clear forms
-        document.getElementById('userFullName').value = '';
-        document.getElementById('userDepartment').value = '';
-        document.getElementById('adminUsername').value = '';
-        document.getElementById('adminPassword').value = '';
-        
-        this.showInterface('login');
-    }
-
-    // Interface Management
-    showInterface(interfaceType) {
-        document.querySelectorAll('.interface').forEach(iface => iface.classList.remove('active'));
-        document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active'));
-        
-        if (interfaceType === 'login') {
-            document.getElementById('login-screen').classList.add('active');
-        } else if (interfaceType === 'user') {
-            document.getElementById('user-interface').classList.add('active');
-            document.getElementById('welcome-screen').classList.add('active');
-        } else if (interfaceType === 'admin') {
-            document.getElementById('admin-interface').classList.add('active');
-        }
-        
-        this.currentInterface = interfaceType;
-    }
-
-    showScreen(screenId) {
-        if (this.currentInterface === 'user') {
-            document.querySelectorAll('#user-interface .screen').forEach(screen => {
-                screen.classList.remove('active');
-            });
-            document.getElementById(screenId).classList.add('active');
-        }
-    }
-
-    // User Quiz Functionality
-    loadWelcomeScreen() {
-        const categoryList = document.getElementById('categoryList');
-        categoryList.innerHTML = '';
-        
-        quizConfig.categories.forEach(category => {
-            const li = document.createElement('li');
-            li.textContent = `${category} (${questionBank[category].length} questions available)`;
-            categoryList.appendChild(li);
+        // User name input
+        document.getElementById('userName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.startQuiz();
         });
     }
 
@@ -421,20 +50,17 @@ class SecurityQuizApp {
         
         quizConfig.categories.forEach(category => {
             const categoryQuestions = questionBank[category];
-            if (categoryQuestions.length < quizConfig.questionsPerCategory) {
-                throw new Error(`Not enough questions in ${category}. Need ${quizConfig.questionsPerCategory}, have ${categoryQuestions.length}`);
-            }
-            
             const selectedQuestions = this.getRandomQuestions(categoryQuestions, quizConfig.questionsPerCategory);
             quiz.push(...selectedQuestions.map(q => ({...q, category})));
         });
         
+        // Shuffle the entire quiz
         return this.shuffleArray(quiz);
     }
 
     getRandomQuestions(questions, count) {
         const shuffled = this.shuffleArray([...questions]);
-        return shuffled.slice(0, count);
+        return shuffled.slice(0, Math.min(count, shuffled.length));
     }
 
     shuffleArray(array) {
@@ -447,19 +73,24 @@ class SecurityQuizApp {
     }
 
     startQuiz() {
-        try {
-            this.currentQuiz = this.generateRandomQuiz();
-            this.currentQuestionIndex = 0;
-            this.userAnswers = new Array(this.currentQuiz.length).fill(null);
-            this.startTime = new Date();
-            
-            this.showScreen('quiz-screen');
-            this.startTimer();
-            this.displayQuestion();
-            this.updateProgress();
-        } catch (error) {
-            this.showMessage(error.message, 'error');
+        const nameInput = document.getElementById('userName');
+        this.userName = nameInput.value.trim();
+        
+        if (!this.userName) {
+            this.showMessage('Please enter your name to start the quiz.', 'error');
+            nameInput.focus();
+            return;
         }
+
+        this.currentQuiz = this.generateRandomQuiz();
+        this.currentQuestionIndex = 0;
+        this.userAnswers = new Array(this.currentQuiz.length).fill(null);
+        this.startTime = new Date();
+        
+        this.showScreen('quiz-screen');
+        this.startTimer();
+        this.displayQuestion();
+        this.updateProgress();
     }
 
     startTimer() {
@@ -480,11 +111,13 @@ class SecurityQuizApp {
         const questionNumber = this.currentQuestionIndex + 1;
         const totalQuestions = this.currentQuiz.length;
         
+        // Update question info
         document.getElementById('currentQ').textContent = questionNumber;
         document.getElementById('totalQ').textContent = totalQuestions;
         document.getElementById('currentCategory').textContent = question.category;
         document.getElementById('questionText').textContent = question.question;
         
+        // Create options
         const optionsContainer = document.getElementById('optionsContainer');
         optionsContainer.innerHTML = '';
         
@@ -496,12 +129,15 @@ class SecurityQuizApp {
                 <label for="option${index}">${option}</label>
             `;
             
+            // Check if this option was previously selected
             if (this.userAnswers[this.currentQuestionIndex] === index) {
                 optionDiv.querySelector('input').checked = true;
                 optionDiv.classList.add('selected');
             }
             
+            // Add click handler
             optionDiv.addEventListener('click', () => this.selectOption(index));
+            
             optionsContainer.appendChild(optionDiv);
         });
         
@@ -509,13 +145,18 @@ class SecurityQuizApp {
     }
 
     selectOption(optionIndex) {
+        // Clear previous selection
         document.querySelectorAll('.option').forEach(opt => opt.classList.remove('selected'));
         
+        // Mark new selection
         const selectedOption = document.querySelector(`#option${optionIndex}`).closest('.option');
         selectedOption.classList.add('selected');
         document.querySelector(`#option${optionIndex}`).checked = true;
         
+        // Store answer
         this.userAnswers[this.currentQuestionIndex] = optionIndex;
+        
+        // Enable next button
         document.getElementById('nextBtn').disabled = false;
     }
 
@@ -528,6 +169,7 @@ class SecurityQuizApp {
         const hasAnswer = this.userAnswers[this.currentQuestionIndex] !== null;
         nextBtn.disabled = !hasAnswer;
         
+        // Update next button text
         if (this.currentQuestionIndex === this.currentQuiz.length - 1) {
             nextBtn.textContent = 'Finish Quiz';
         } else {
@@ -559,12 +201,15 @@ class SecurityQuizApp {
     }
 
     finishQuiz() {
-        if (this.timer) clearInterval(this.timer);
+        if (this.timer) {
+            clearInterval(this.timer);
+        }
         
         const endTime = new Date();
-        const duration = Math.round((endTime - this.startTime) / 1000);
+        const duration = Math.round((endTime - this.startTime) / 1000); // in seconds
         
         const results = this.calculateResults(duration);
+        this.saveResults(results);
         this.displayResults(results);
         this.showScreen('results-screen');
     }
@@ -573,6 +218,7 @@ class SecurityQuizApp {
         const categoryScores = {};
         const categoryTotals = {};
         
+        // Initialize category counters
         quizConfig.categories.forEach(cat => {
             categoryScores[cat] = 0;
             categoryTotals[cat] = 0;
@@ -605,9 +251,7 @@ class SecurityQuizApp {
         const passed = overallScore >= quizConfig.passingScore;
         
         return {
-            id: `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            userName: this.currentUser.name,
-            userDepartment: this.currentUser.department,
+            userName: this.userName,
             date: new Date().toISOString(),
             duration: duration,
             overallScore: overallScore,
@@ -616,23 +260,15 @@ class SecurityQuizApp {
             passed: passed,
             categoryScores: categoryScores,
             categoryTotals: categoryTotals,
-            detailedAnswers: detailedAnswers,
-            submitted: false
+            detailedAnswers: detailedAnswers
         };
     }
 
     displayResults(results) {
-        this.currentResults = results;
-        
+        // Overall score
         document.getElementById('overallScore').textContent = `${results.overallScore}%`;
-        document.getElementById('scoreStatus').textContent = results.passed ? 'PASS' : 'FAIL';
         
-        const scoreCard = document.getElementById('overallScoreCard');
-        scoreCard.className = `overall-score ${results.passed ? 'pass' : 'fail'}`;
-        
-        document.getElementById('resultsTitle').textContent = 
-            results.passed ? '🎉 Congratulations! You Passed!' : '📚 Keep Studying - You Can Do Better!';
-        
+        // Category results
         const categoryContainer = document.getElementById('categoryResults');
         categoryContainer.innerHTML = '';
         
@@ -651,6 +287,13 @@ class SecurityQuizApp {
             
             categoryContainer.appendChild(categoryDiv);
         });
+        
+        // Show success/failure message
+        const message = results.passed ? 
+            `🎉 Congratulations! You passed with ${results.overallScore}%` :
+            `📚 You scored ${results.overallScore}%. Keep studying and try again!`;
+        
+        this.showMessage(message, results.passed ? 'success' : 'info');
     }
 
     getPerformanceClass(percentage) {
@@ -659,297 +302,163 @@ class SecurityQuizApp {
         return 'poor';
     }
 
-    async submitResults() {
-        if (!this.currentResults) return;
-        
-        // Disable button to prevent double submission
-        const submitBtn = document.getElementById('submitResults');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
-        
-        try {
-            this.currentResults.submitted = true;
-            this.currentResults.submittedAt = new Date().toISOString();
-            
-            // Add to results array
-            this.results.push(this.currentResults);
-            
-            // Save to both local and cloud
-            await this.saveResults();
-            
-            this.showMessage('Results submitted successfully! Thank you for taking the assessment.', 'success');
-            
-            submitBtn.textContent = 'Results Submitted';
-        } catch (error) {
-            console.error('Error submitting results:', error);
-            this.showMessage('Error submitting results. Please try again.', 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit Results';
-        }
+    saveResults(results) {
+        this.results.push(results);
+        localStorage.setItem('cgf-quiz-results', JSON.stringify(this.results));
+    }
+
+    loadResults() {
+        const saved = localStorage.getItem('cgf-quiz-results');
+        this.results = saved ? JSON.parse(saved) : [];
     }
 
     retakeQuiz() {
         this.showScreen('welcome-screen');
+        document.getElementById('userName').value = this.userName;
     }
 
-    exportUserResults() {
-        if (!this.currentResults) return;
+    exportResults() {
+        if (this.results.length === 0) {
+            this.showMessage('No results to export.', 'info');
+            return;
+        }
         
-        const csv = this.convertResultToCSV([this.currentResults]);
-        this.downloadCSV(csv, `${this.currentUser.name.replace(/\s+/g, '_')}_quiz_results.csv`);
+        const csv = this.convertToCSV(this.results);
+        this.downloadCSV(csv, 'cgf-quiz-results.csv');
     }
 
-    // Admin Functionality
-    async loadAdminDashboard() {
-        // Refresh data first
-        await this.loadResults();
+    convertToCSV(data) {
+        const headers = ['Name', 'Date', 'Overall Score', 'Passed', 'Duration (seconds)', 'Physical Security', 'Access Control', 'Data Protection', 'Incident Response'];
         
-        this.updateDashboardStats();
-        this.loadCategoryRanking();
-        this.loadTopPerformers();
-        this.loadRecentSubmissions();
-        this.loadLowPerformers();
+        const rows = data.map(result => [
+            result.userName,
+            new Date(result.date).toLocaleString(),
+            `${result.overallScore}%`,
+            result.passed ? 'Yes' : 'No',
+            result.duration,
+            `${Math.round((result.categoryScores['Physical Security'] / result.categoryTotals['Physical Security']) * 100)}%`,
+            `${Math.round((result.categoryScores['Access Control'] / result.categoryTotals['Access Control']) * 100)}%`,
+            `${Math.round((result.categoryScores['Data Protection'] / result.categoryTotals['Data Protection']) * 100)}%`,
+            `${Math.round((result.categoryScores['Incident Response'] / result.categoryTotals['Incident Response']) * 100)}%`
+        ]);
+        
+        return [headers, ...rows].map(row => row.join(',')).join('\n');
     }
 
-    async switchAdminTab(tabName) {
+    downloadCSV(csv, filename) {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    showMessage(text, type) {
+        // Remove existing messages
+        document.querySelectorAll('.message').forEach(msg => msg.remove());
+        
+        const message = document.createElement('div');
+        message.className = `message ${type}`;
+        message.textContent = text;
+        
+        const container = document.querySelector('.screen.active .welcome-card, .screen.active .results-card');
+        if (container) {
+            container.insertBefore(message, container.firstChild);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => message.remove(), 5000);
+        }
+    }
+
+    toggleAdmin() {
+        const adminScreen = document.getElementById('admin-screen');
+        if (adminScreen.classList.contains('active')) {
+            this.showScreen('welcome-screen');
+        } else {
+            this.showScreen('admin-screen');
+            this.loadAdminData();
+        }
+    }
+
+    switchTab(tabName) {
+        // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         document.getElementById(`${tabName}-tab`).classList.add('active');
         
-        // Refresh data when switching to certain tabs
-        if (['dashboard', 'results', 'analytics', 'users'].includes(tabName)) {
-            this.showMessage('Refreshing data...', 'info');
-            await this.loadResults();
-        }
-        
-        switch(tabName) {
-            case 'dashboard':
-                this.loadAdminDashboard();
-                break;
-            case 'results':
-                this.loadAllResults();
-                break;
-            case 'analytics':
-                this.loadAnalytics();
-                break;
-            case 'questions':
-                this.loadQuestions();
-                break;
-            case 'categories':
-                this.loadCategories();
-                break;
-            case 'users':
-                this.loadUserRankings();
-                break;
-        }
+        // Load tab-specific data
+        if (tabName === 'results') this.loadAllResults();
+        if (tabName === 'analytics') this.loadAnalytics();
+        if (tabName === 'questions') this.loadQuestions();
     }
 
-    updateDashboardStats() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        const totalUsers = new Set(submittedResults.map(r => r.userName)).size;
-        const totalAttempts = submittedResults.length;
-        const avgScore = totalAttempts > 0 ? Math.round(submittedResults.reduce((sum, r) => sum + r.overallScore, 0) / totalAttempts) : 0;
-        const passRate = totalAttempts > 0 ? Math.round((submittedResults.filter(r => r.passed).length / totalAttempts) * 100) : 0;
-        
-        document.getElementById('totalUsers').textContent = totalUsers;
-        document.getElementById('totalAttempts').textContent = totalAttempts;
-        document.getElementById('avgScore').textContent = `${avgScore}%`;
-        document.getElementById('passRate').textContent = `${passRate}%`;
-        
-        console.log('Dashboard stats updated:', { totalUsers, totalAttempts, avgScore, passRate });
+    loadAdminData() {
+        this.loadQuestions();
+        this.loadAllResults();
+        this.loadAnalytics();
     }
 
-    loadCategoryRanking() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('categoryRanking').innerHTML = '<p>No data available</p>';
-            return;
-        }
+    loadQuestions() {
+        const container = document.getElementById('questionsList');
+        container.innerHTML = '<h4>Question Bank Overview</h4>';
         
-        const categoryStats = {};
-        
-        quizConfig.categories.forEach(cat => {
-            categoryStats[cat] = { correct: 0, total: 0 };
+        Object.keys(questionBank).forEach(category => {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.innerHTML = `
+                <h5>${category} (${questionBank[category].length} questions)</h5>
+                <div style="margin-left: 20px;">
+                    ${questionBank[category].map((q, i) => `
+                        <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                            <strong>Q${i+1}:</strong> ${q.question}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            container.appendChild(categoryDiv);
         });
-        
-        submittedResults.forEach(result => {
-            Object.keys(result.categoryScores).forEach(category => {
-                if (categoryStats[category]) {
-                    categoryStats[category].correct += result.categoryScores[category];
-                    categoryStats[category].total += result.categoryTotals[category];
-                }
-            });
-        });
-        
-        const rankings = Object.keys(categoryStats)
-            .map(category => ({
-                category,
-                percentage: categoryStats[category].total > 0 ? 
-                    Math.round((categoryStats[category].correct / categoryStats[category].total) * 100) : 0,
-                correct: categoryStats[category].correct,
-                total: categoryStats[category].total
-            }))
-            .sort((a, b) => b.percentage - a.percentage);
-        
-        const container = document.getElementById('categoryRanking');
-        container.innerHTML = rankings.map((item, index) => `
-            <div class="ranking-item">
-                <div class="ranking-position">#${index + 1}</div>
-                <div class="ranking-info">
-                    <div class="ranking-name">${item.category}</div>
-                    <div class="ranking-details">${item.correct}/${item.total} correct answers</div>
-                </div>
-                <div class="ranking-score">${item.percentage}%</div>
-            </div>
-        `).join('');
-    }
-
-    loadTopPerformers() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('topPerformers').innerHTML = '<p>No data available</p>';
-            return;
-        }
-        
-        const topPerformers = submittedResults
-            .sort((a, b) => b.overallScore - a.overallScore)
-            .slice(0, 5);
-        
-        const container = document.getElementById('topPerformers');
-        container.innerHTML = topPerformers.map((result, index) => `
-            <div class="ranking-item">
-                <div class="ranking-position">#${index + 1}</div>
-                <div class="ranking-info">
-                    <div class="ranking-name">${result.userName}</div>
-                    <div class="ranking-details">${result.userDepartment}</div>
-                </div>
-                <div class="ranking-score">${result.overallScore}%</div>
-            </div>
-        `).join('');
-    }
-
-    loadRecentSubmissions() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('recentSubmissions').innerHTML = '<p>No submissions yet</p>';
-            return;
-        }
-        
-        const recent = submittedResults
-            .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-            .slice(0, 5);
-        
-        const container = document.getElementById('recentSubmissions');
-        container.innerHTML = recent.map(result => `
-            <div class="recent-item" style="padding: 10px; border-left: 4px solid ${result.passed ? '#28a745' : '#dc3545'}; margin-bottom: 10px; background: white; border-radius: 5px;">
-                <strong>${result.userName}</strong> - ${result.overallScore}% 
-                <span class="${result.passed ? 'status-pass' : 'status-fail'}">(${result.passed ? 'PASS' : 'FAIL'})</span>
-                <br><small>${new Date(result.submittedAt).toLocaleString()}</small>
-            </div>
-        `).join('');
-    }
-
-    loadLowPerformers() {
-        const submittedResults = this.results.filter(r => r.submitted && !r.passed);
-        if (submittedResults.length === 0) {
-            document.getElementById('lowPerformers').innerHTML = '<p>All users passed! 🎉</p>';
-            return;
-        }
-        
-        const lowPerformers = submittedResults
-            .sort((a, b) => a.overallScore - b.overallScore)
-            .slice(0, 5);
-        
-        const container = document.getElementById('lowPerformers');
-        container.innerHTML = lowPerformers.map(result => `
-            <div class="ranking-item">
-                <div class="ranking-info">
-                    <div class="ranking-name">${result.userName}</div>
-                    <div class="ranking-details">${result.userDepartment}</div>
-                </div>
-                <div class="ranking-score" style="color: #dc3545;">${result.overallScore}%</div>
-            </div>
-        `).join('');
     }
 
     loadAllResults() {
-        this.filterResults();
-    }
-
-    filterResults() {
-        const searchTerm = document.getElementById('searchResults').value.toLowerCase();
-        const statusFilter = document.getElementById('filterStatus').value;
-        const sortBy = document.getElementById('sortResults').value;
-        
-        let filteredResults = this.results.filter(r => r.submitted);
-        
-        if (searchTerm) {
-            filteredResults = filteredResults.filter(result => 
-                result.userName.toLowerCase().includes(searchTerm) ||
-                (result.userDepartment && result.userDepartment.toLowerCase().includes(searchTerm))
-            );
-        }
-        
-        if (statusFilter) {
-            filteredResults = filteredResults.filter(result => 
-                statusFilter === 'pass' ? result.passed : !result.passed
-            );
-        }
-        
-        filteredResults.sort((a, b) => {
-            switch(sortBy) {
-                case 'score':
-                    return b.overallScore - a.overallScore;
-                case 'name':
-                    return a.userName.localeCompare(b.userName);
-                case 'date':
-                default:
-                    return new Date(b.submittedAt) - new Date(a.submittedAt);
-            }
-        });
-        
-        this.displayResultsTable(filteredResults);
-    }
-
-    displayResultsTable(results) {
         const container = document.getElementById('allResultsList');
         
-        if (results.length === 0) {
-            container.innerHTML = '<p>No results found.</p>';
+        if (this.results.length === 0) {
+            container.innerHTML = '<p>No quiz results yet.</p>';
             return;
         }
         
         const table = document.createElement('table');
-        table.className = 'results-table';
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
         
         table.innerHTML = `
             <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Department</th>
-                    <th>Score</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Duration</th>
-                    <th>Actions</th>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">Name</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Score</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Status</th>
                 </tr>
             </thead>
             <tbody>
-                ${results.map(result => `
+                ${this.results.map(result => `
                     <tr>
-                        <td>${result.userName}</td>
-                        <td>${result.userDepartment}</td>
-                        <td>${result.overallScore}%</td>
-                        <td class="${result.passed ? 'status-pass' : 'status-fail'}">
+                        <td style="padding: 10px; border: 1px solid #ddd;">${result.userName}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${new Date(result.date).toLocaleString()}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${result.overallScore}%</td>
+                        <td style="padding: 10px; border: 1px solid #ddd; color: ${result.passed ? 'green' : 'red'};">
                             ${result.passed ? '✅ PASS' : '❌ FAIL'}
-                        </td>
-                        <td>${new Date(result.submittedAt).toLocaleString()}</td>
-                        <td>${Math.floor(result.duration / 60)}:${(result.duration % 60).toString().padStart(2, '0')}</td>
-                        <td>
-                            <button class="btn-small btn-primary" onclick="quiz.viewResultDetails('${result.id}')">View</button>
-                            <button class="btn-small btn-danger" onclick="quiz.deleteResult('${result.id}')">Delete</button>
                         </td>
                     </tr>
                 `).join('')}
@@ -960,628 +469,83 @@ class SecurityQuizApp {
         container.appendChild(table);
     }
 
-    viewResultDetails(resultId) {
-        const result = this.results.find(r => r.id === resultId);
-        if (!result) return;
-        
-        alert(`Detailed Results for ${result.userName}\n\n` +
-              `Overall Score: ${result.overallScore}%\n` +
-              `Status: ${result.passed ? 'PASS' : 'FAIL'}\n` +
-              `Duration: ${Math.floor(result.duration / 60)}:${(result.duration % 60).toString().padStart(2, '0')}\n\n` +
-              `Category Breakdown:\n` +
-              Object.keys(result.categoryScores).map(cat => 
-                  `${cat}: ${Math.round((result.categoryScores[cat] / result.categoryTotals[cat]) * 100)}%`
-              ).join('\n'));
-    }
-
-    async deleteResult(resultId) {
-        if (confirm('Are you sure you want to delete this result?')) {
-            this.results = this.results.filter(r => r.id !== resultId);
-            await this.saveResults();
-            this.filterResults();
-            this.updateDashboardStats();
-            this.showMessage('Result deleted successfully.', 'success');
-        }
-    }
-
     loadAnalytics() {
-        this.loadCategoryAnalytics();
-        this.loadScoreDistribution();
-        this.loadQuestionDifficulty();
-    }
-
-    loadCategoryAnalytics() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('categoryAnalytics').innerHTML = '<p>No data available</p>';
+        const container = document.getElementById('analyticsContent');
+        
+        if (this.results.length === 0) {
+            container.innerHTML = '<p>No data available for analytics.</p>';
             return;
         }
         
+        const totalAttempts = this.results.length;
+        const averageScore = Math.round(this.results.reduce((sum, r) => sum + r.overallScore, 0) / totalAttempts);
+        const passRate = Math.round((this.results.filter(r => r.passed).length / totalAttempts) * 100);
+        
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; text-align: center;">
+                    <h3>${totalAttempts}</h3>
+                    <p>Total Attempts</p>
+                </div>
+                <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; text-align: center;">
+                    <h3>${averageScore}%</h3>
+                    <p>Average Score</p>
+                </div>
+                <div style="background: #fff3e0; padding: 20px; border-radius: 10px; text-align: center;">
+                    <h3>${passRate}%</h3>
+                    <p>Pass Rate</p>
+                </div>
+            </div>
+            
+            <h4>Category Performance</h4>
+            <div id="categoryAnalytics"></div>
+        `;
+        
+        this.loadCategoryAnalytics();
+    }
+
+    loadCategoryAnalytics() {
+        const container = document.getElementById('categoryAnalytics');
         const categoryStats = {};
         
+        // Initialize categories
         quizConfig.categories.forEach(cat => {
-            categoryStats[cat] = { correct: 0, total: 0, attempts: 0 };
+            categoryStats[cat] = { total: 0, correct: 0, attempts: 0 };
         });
         
-        submittedResults.forEach(result => {
+        // Calculate category statistics
+        this.results.forEach(result => {
             Object.keys(result.categoryScores).forEach(category => {
-                if (categoryStats[category]) {
-                    categoryStats[category].correct += result.categoryScores[category];
-                    categoryStats[category].total += result.categoryTotals[category];
-                    categoryStats[category].attempts++;
-                }
+                categoryStats[category].correct += result.categoryScores[category];
+                categoryStats[category].total += result.categoryTotals[category];
+                categoryStats[category].attempts++;
             });
         });
         
-        const container = document.getElementById('categoryAnalytics');
-        container.innerHTML = Object.keys(categoryStats).map(category => {
+        // Display category statistics
+        const categoryHTML = Object.keys(categoryStats).map(category => {
             const stats = categoryStats[category];
             const percentage = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
             
             return `
                 <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #667eea;">
                     <h5>${category}</h5>
-                    <p><strong>Average Score:</strong> ${percentage}%</p>
-                    <p><strong>Total Answers:</strong> ${stats.correct}/${stats.total} correct</p>
-                    <p><strong>User Attempts:</strong> ${stats.attempts}</p>
+                    <p>Average Score: ${percentage}% (${stats.correct}/${stats.total} correct)</p>
+                    <p>Attempts: ${stats.attempts}</p>
                 </div>
             `;
         }).join('');
+        
+        container.innerHTML = categoryHTML;
     }
 
-    loadScoreDistribution() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('scoreDistribution').innerHTML = '<p>No data available</p>';
-            return;
-        }
-        
-        const ranges = {
-            '90-100%': 0,
-            '80-89%': 0,
-            '70-79%': 0,
-            '60-69%': 0,
-            'Below 60%': 0
-        };
-        
-        submittedResults.forEach(result => {
-            const score = result.overallScore;
-            if (score >= 90) ranges['90-100%']++;
-            else if (score >= 80) ranges['80-89%']++;
-            else if (score >= 70) ranges['70-79%']++;
-            else if (score >= 60) ranges['60-69%']++;
-            else ranges['Below 60%']++;
-        });
-        
-        const container = document.getElementById('scoreDistribution');
-        container.innerHTML = Object.keys(ranges).map(range => `
-            <div style="display: flex; justify-content: space-between; padding: 10px; background: white; margin: 5px 0; border-radius: 5px;">
-                <span>${range}</span>
-                <strong>${ranges[range]} users</strong>
-            </div>
-        `).join('');
-    }
-
-    loadQuestionDifficulty() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('questionDifficulty').innerHTML = '<p>No data available</p>';
-            return;
-        }
-        
-        const questionStats = {};
-        
-        submittedResults.forEach(result => {
-            result.detailedAnswers.forEach(answer => {
-                if (!questionStats[answer.question]) {
-                    questionStats[answer.question] = { correct: 0, total: 0 };
-                }
-                questionStats[answer.question].total++;
-                if (answer.isCorrect) {
-                    questionStats[answer.question].correct++;
-                }
-            });
-        });
-        
-        const sortedQuestions = Object.keys(questionStats)
-            .map(question => ({
-                question: question.substring(0, 50) + '...',
-                percentage: Math.round((questionStats[question].correct / questionStats[question].total) * 100),
-                correct: questionStats[question].correct,
-                total: questionStats[question].total
-            }))
-            .sort((a, b) => a.percentage - b.percentage)
-            .slice(0, 10);
-        
-        const container = document.getElementById('questionDifficulty');
-        container.innerHTML = '<h5>Most Difficult Questions:</h5>' + 
-            sortedQuestions.map(q => `
-                <div style="background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 5px; border-left: 4px solid ${q.percentage < 50 ? '#dc3545' : '#ffc107'};">
-                    <div><strong>${q.question}</strong></div>
-                    <div>Success Rate: ${q.percentage}% (${q.correct}/${q.total})</div>
-                </div>
-            `).join('');
-    }
-
-    loadQuestions() {
-        this.populateCategorySelects();
-        this.filterQuestions();
-    }
-
-    populateCategorySelects() {
-        const selects = ['questionCategory', 'editQuestionCategory', 'filterCategory'];
-        
-        selects.forEach(selectId => {
-            const select = document.getElementById(selectId);
-            if (selectId === 'filterCategory') {
-                select.innerHTML = '<option value="">All Categories</option>';
-            } else {
-                select.innerHTML = '';
-            }
-            
-            quizConfig.categories.forEach(category => {
-                const option = document.createElement('option');
-                option.value = category;
-                option.textContent = category;
-                select.appendChild(option);
-            });
-        });
-    }
-
-    filterQuestions() {
-        const searchTerm = document.getElementById('searchQuestions').value.toLowerCase();
-        const categoryFilter = document.getElementById('filterCategory').value;
-        
-        const container = document.getElementById('questionsList');
-        container.innerHTML = '';
-        
-        Object.keys(questionBank).forEach(category => {
-            if (categoryFilter && category !== categoryFilter) return;
-            
-            const categoryQuestions = questionBank[category].filter(q => 
-                !searchTerm || q.question.toLowerCase().includes(searchTerm)
-            );
-            
-            if (categoryQuestions.length === 0) return;
-            
-            const categoryDiv = document.createElement('div');
-            categoryDiv.innerHTML = `<h4>${category} (${categoryQuestions.length} questions)</h4>`;
-            
-            categoryQuestions.forEach(question => {
-                const questionDiv = document.createElement('div');
-                questionDiv.className = 'question-item';
-                questionDiv.innerHTML = `
-                    <div class="question-header">
-                        <span class="question-category">${category}</span>
-                        <div class="question-actions">
-                            <button class="btn-small btn-primary" onclick="quiz.editQuestion('${question.id}', '${category}')">Edit</button>
-                            <button class="btn-small btn-danger" onclick="quiz.deleteQuestion('${question.id}', '${category}')">Delete</button>
-                        </div>
-                    </div>
-                    <div class="question-text">${question.question}</div>
-                    <div class="question-options">
-                        ${question.options.map((option, index) => `
-                            <div class="${index === question.correct ? 'correct-option' : ''}">
-                                ${String.fromCharCode(65 + index)}: ${option}
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                categoryDiv.appendChild(questionDiv);
-            });
-            
-            container.appendChild(categoryDiv);
-        });
-    }
-
-    loadCategories() {
-        const container = document.getElementById('categoriesList');
-        container.innerHTML = '';
-        
-        quizConfig.categories.forEach(category => {
-            const categoryDiv = document.createElement('div');
-            categoryDiv.className = 'category-item';
-            categoryDiv.innerHTML = `
-                <div class="category-info">
-                    <h4>${category}</h4>
-                    <p>${questionBank[category].length} questions available</p>
-                </div>
-                <div class="category-stats">
-                    <div>${questionBank[category].length} Questions</div>
-                    <button class="btn-small btn-danger" onclick="quiz.deleteCategory('${category}')">Delete</button>
-                </div>
-            `;
-            container.appendChild(categoryDiv);
-        });
-    }
-
-    loadUserRankings() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            document.getElementById('userRankings').innerHTML = '<p>No user data available</p>';
-            return;
-        }
-        
-        const userBestScores = {};
-        submittedResults.forEach(result => {
-            if (!userBestScores[result.userName] || result.overallScore > userBestScores[result.userName].overallScore) {
-                userBestScores[result.userName] = result;
-            }
-        });
-        
-        const rankings = Object.values(userBestScores)
-            .sort((a, b) => b.overallScore - a.overallScore);
-        
-        const container = document.getElementById('userRankings');
-        container.innerHTML = rankings.map((result, index) => `
-            <div class="ranking-item">
-                <div class="ranking-position">#${index + 1}</div>
-                <div class="ranking-info">
-                    <div class="ranking-name">${result.userName}</div>
-                    <div class="ranking-details">${result.userDepartment}</div>
-                </div>
-                <div class="ranking-score">${result.overallScore}%</div>
-            </div>
-        `).join('');
-    }
-
-    // Modal Management
-    showModal(modalId) {
-        document.getElementById(modalId).style.display = 'block';
-    }
-
-    hideModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-        
-        const form = document.querySelector(`#${modalId} form`);
-        if (form) form.reset();
-    }
-
-    showAddQuestionModal() {
-        this.populateCategorySelects();
-        this.showModal('addQuestionModal');
-    }
-
-    showAddCategoryModal() {
-        this.showModal('addCategoryModal');
-    }
-
-    // Enhanced add category method with cloud sync
-    async addNewCategory() {
-        const categoryName = document.getElementById('categoryName').value.trim();
-        const categoryDescription = document.getElementById('categoryDescription').value.trim();
-        
-        try {
-            await this.categoryManager.addCategory({
-                name: categoryName,
-                description: categoryDescription
-            });
-            
-            this.hideModal('addCategoryModal');
-            this.loadCategories();
-            this.populateCategorySelects();
-            this.showMessage('Category added and synced to cloud!', 'success');
-        } catch (error) {
-            this.showMessage(error.message, 'error');
-        }
-    }
-
-    // Enhanced delete category method with cloud sync
-    async deleteCategory(categoryName) {
-        if (confirm(`Are you sure you want to delete "${categoryName}" and all its questions? This will sync to cloud.`)) {
-            try {
-                await this.categoryManager.deleteCategory(categoryName);
-                
-                this.loadCategories();
-                this.populateCategorySelects();
-                this.showMessage('Category deleted and synced to cloud!', 'success');
-            } catch (error) {
-                this.showMessage(error.message, 'error');
-            }
-        }
-    }
-
-    // Enhanced add question method with cloud sync
-    async addNewQuestion() {
-        const questionData = {
-            category: document.getElementById('questionCategory').value,
-            question: document.getElementById('questionText').value,
-            options: [
-                document.getElementById('optionA').value,
-                document.getElementById('optionB').value,
-                document.getElementById('optionC').value,
-                document.getElementById('optionD').value
-            ],
-            correct: parseInt(document.getElementById('correctAnswer').value),
-            explanation: document.getElementById('explanation').value
-        };
-
-        try {
-            await this.categoryManager.addQuestion(questionData);
-            
-            this.hideModal('addQuestionModal');
-            this.loadQuestions();
-            this.showMessage('Question added and synced to cloud!', 'success');
-        } catch (error) {
-            this.showMessage(error.message, 'error');
-        }
-    }
-
-    editQuestion(questionId, category) {
-        const question = questionBank[category].find(q => q.id === questionId);
-        if (!question) return;
-        
-        document.getElementById('editQuestionId').value = questionId;
-        document.getElementById('editOriginalCategory').value = category;
-        document.getElementById('editQuestionCategory').value = category;
-        document.getElementById('editQuestionText').value = question.question;
-        document.getElementById('editOptionA').value = question.options[0];
-        document.getElementById('editOptionB').value = question.options[1];
-        document.getElementById('editOptionC').value = question.options[2];
-        document.getElementById('editOptionD').value = question.options[3];
-        document.getElementById('editCorrectAnswer').value = question.correct;
-        document.getElementById('editExplanation').value = question.explanation || '';
-        
-        this.populateCategorySelects();
-        this.showModal('editQuestionModal');
-    }
-
-    async updateQuestion() {
-        const questionId = document.getElementById('editQuestionId').value;
-        const oldCategory = document.getElementById('editOriginalCategory').value;
-        const newCategory = document.getElementById('editQuestionCategory').value;
-        
-        const updatedQuestion = {
-            id: questionId,
-            question: document.getElementById('editQuestionText').value,
-            options: [
-                document.getElementById('editOptionA').value,
-                document.getElementById('editOptionB').value,
-                document.getElementById('editOptionC').value,
-                document.getElementById('editOptionD').value
-            ],
-            correct: parseInt(document.getElementById('editCorrectAnswer').value),
-            explanation: document.getElementById('editExplanation').value
-        };
-        
-        try {
-            // Delete from old category and add to new category
-            await this.categoryManager.deleteQuestion(questionId, oldCategory);
-            
-            if (oldCategory !== newCategory) {
-                await this.categoryManager.addQuestion({
-                    category: newCategory,
-                    question: updatedQuestion.question,
-                    options: updatedQuestion.options,
-                    correct: updatedQuestion.correct,
-                    explanation: updatedQuestion.explanation
-                });
-            } else {
-                // Same category, just update in place
-                const questionIndex = questionBank[oldCategory].findIndex(q => q.id === questionId);
-                if (questionIndex !== -1) {
-                    questionBank[oldCategory][questionIndex] = updatedQuestion;
-                    await this.categoryManager.syncToCloud();
-                }
-            }
-            
-            this.hideModal('editQuestionModal');
-            this.loadQuestions();
-            this.showMessage('Question updated and synced to cloud!', 'success');
-        } catch (error) {
-            this.showMessage(error.message, 'error');
-        }
-    }
-
-    // Enhanced delete question method with cloud sync
-    async deleteQuestion(questionId, category) {
-        if (confirm('Are you sure you want to delete this question? This will sync to cloud.')) {
-            try {
-                await this.categoryManager.deleteQuestion(questionId, category);
-                
-                this.loadQuestions();
-                this.showMessage('Question deleted and synced to cloud!', 'success');
-            } catch (error) {
-                this.showMessage(error.message, 'error');
-            }
-        }
-    }
-
-    // Data Management
-    exportAllResults() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            this.showMessage('No results to export.', 'info');
-            return;
-        }
-        
-        const csv = this.convertResultToCSV(submittedResults);
-        this.downloadCSV(csv, `cgf_all_results_${new Date().toISOString().split('T')[0]}.csv`);
-        this.showMessage('Results exported successfully!', 'success');
-    }
-
-    exportUserRankings() {
-        const submittedResults = this.results.filter(r => r.submitted);
-        if (submittedResults.length === 0) {
-            this.showMessage('No rankings to export.', 'info');
-            return;
-        }
-        
-        const userBestScores = {};
-        submittedResults.forEach(result => {
-            if (!userBestScores[result.userName] || result.overallScore > userBestScores[result.userName].overallScore) {
-                userBestScores[result.userName] = result;
-            }
-        });
-        
-        const rankings = Object.values(userBestScores)
-            .sort((a, b) => b.overallScore - a.overallScore);
-        
-        const csv = this.convertResultToCSV(rankings);
-        this.downloadCSV(csv, `cgf_user_rankings_${new Date().toISOString().split('T')[0]}.csv`);
-        this.showMessage('Rankings exported successfully!', 'success');
-    }
-
-    async clearAllResults() {
-        if (confirm('Are you sure you want to clear all results? This action cannot be undone.')) {
-            this.results = [];
-            await this.saveResults();
-            this.loadAdminDashboard();
-            this.loadAllResults();
-            this.showMessage('All results cleared.', 'info');
-        }
-    }
-
-    convertResultToCSV(results) {
-        const headers = [
-            'Name', 'Department', 'Date', 'Overall Score', 'Status', 
-            'Duration (seconds)', 'Physical Security', 'Access Control', 
-            'Data Protection', 'Incident Response'
-        ];
-        
-        const rows = results.map(result => [
-            result.userName,
-            result.userDepartment,
-            new Date(result.submittedAt).toLocaleString(),
-            `${result.overallScore}%`,
-            result.passed ? 'PASS' : 'FAIL',
-            result.duration,
-            ...quizConfig.categories.map(cat => {
-                const score = result.categoryScores[cat] || 0;
-                const total = result.categoryTotals[cat] || 1;
-                return `${Math.round((score / total) * 100)}%`;
-            })
-        ]);
-        
-        return [headers, ...rows].map(row => 
-            row.map(cell => `"${cell}"`).join(',')
-        ).join('\n');
-    }
-
-    downloadCSV(csv, filename) {
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-    }
-
-    async saveResults() {
-        // Save to localStorage first (immediate backup)
-        localStorage.setItem('cgf-quiz-results', JSON.stringify(this.results));
-        
-        // Save to Gist (cloud storage)
-        const response = await this.gistAPI.saveData(this.results);
-        
-        if (response.success) {
-            console.log('Results saved to cloud successfully');
-        } else {
-            console.error('Failed to save to cloud:', response.error);
-            this.showMessage('Warning: Results saved locally but failed to sync to cloud.', 'error');
-        }
-    }
-
-    async loadResults() {
-        if (this.isLoading) return;
-        
-        this.isLoading = true;
-        console.log('Loading results from cloud...');
-        
-        try {
-            // Load from Gist
-            const cloudResults = await this.gistAPI.loadData();
-            console.log('Cloud results loaded:', cloudResults);
-            
-            // Load from localStorage as backup
-            const localResults = JSON.parse(localStorage.getItem('cgf-quiz-results') || '[]');
-            console.log('Local results loaded:', localResults);
-            
-            // Merge results (cloud takes priority)
-            const allResults = [...cloudResults];
-            
-            // Add any local results that aren't in cloud
-            localResults.forEach(localResult => {
-                if (!cloudResults.find(cr => cr.id === localResult.id)) {
-                    allResults.push(localResult);
-                }
-            });
-            
-            this.results = allResults;
-            console.log(`Total results loaded: ${this.results.length}`);
-            
-            // Update localStorage with merged results
-            localStorage.setItem('cgf-quiz-results', JSON.stringify(this.results));
-            
-        } catch (error) {
-            console.error('Error loading results:', error);
-            // Fallback to localStorage only
-            this.results = JSON.parse(localStorage.getItem('cgf-quiz-results') || '[]');
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    showMessage(text, type) {
-        document.querySelectorAll('.message').forEach(msg => msg.remove());
-        
-        const message = document.createElement('div');
-        message.className = `message ${type}`;
-        message.textContent = text;
-        
-        let container = null;
-        if (this.currentInterface === 'login') {
-            container = document.querySelector('.login-card');
-        } else if (this.currentInterface === 'user') {
-            container = document.querySelector('.screen.active .welcome-card, .screen.active .results-card');
-        } else if (this.currentInterface === 'admin') {
-            container = document.querySelector('.tab-content.active');
-        }
-        
-        if (container) {
-            container.insertBefore(message, container.firstChild);
-            
-            setTimeout(() => {
-                if (message.parentNode) {
-                    message.remove();
-                }
-            }, 5000);
-        }
+    showAllResults() {
+        this.showScreen('admin-screen');
+        this.switchTab('results');
     }
 }
 
-// Initialize the application
+// Initialize the quiz when the page loads
 document.addEventListener('DOMContentLoaded', () => {
-    window.quiz = new SecurityQuizApp();
-});
-
-// Global functions for onclick handlers
-function viewResultDetails(resultId) {
-    window.quiz.viewResultDetails(resultId);
-}
-
-function deleteResult(resultId) {
-    window.quiz.deleteResult(resultId);
-}
-
-function editQuestion(questionId, category) {
-    window.quiz.editQuestion(questionId, category);
-}
-
-function deleteQuestion(questionId, category) {
-    window.quiz.deleteQuestion(questionId, category);
-}
-
-function deleteCategory(categoryName) {
-    window.quiz.deleteCategory(categoryName);
-}
-
-// Close modals when clicking outside
-window.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal')) {
-        e.target.style.display = 'none';
-    }
+    new SecurityQuiz();
 });
