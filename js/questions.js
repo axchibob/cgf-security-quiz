@@ -1,5 +1,5 @@
-// CGF Security Quiz - Question Database with Categories
-let questionBank = {
+// CGF Security Quiz - Question Database
+const questionBank = {
     "Physical Security": [
         {
             id: "ps001",
@@ -301,72 +301,15 @@ let questionBank = {
     ]
 };
 
-// Quiz configuration with hardcoded admin credentials
+// Quiz configuration
 const quizConfig = {
     questionsPerCategory: 4,
-    categories: Object.keys(questionBank),
+    categories: ["Physical Security", "Access Control", "Data Protection", "Incident Response"],
     passingScore: 70,
-    timeLimit: null,
-    adminCredentials: {
-        username: "axchibobAD",
-        password: "admin123"
-    }
+    timeLimit: null // Set to null for no time limit, or number of minutes
 };
-
-// Load custom questions and categories from localStorage
-function loadCustomData() {
-    const customQuestions = localStorage.getItem('cgf-custom-questions');
-    const customCategories = localStorage.getItem('cgf-custom-categories');
-    
-    if (customQuestions) {
-        const custom = JSON.parse(customQuestions);
-        Object.keys(custom).forEach(category => {
-            if (questionBank[category]) {
-                questionBank[category] = [...questionBank[category], ...custom[category]];
-            } else {
-                questionBank[category] = custom[category];
-            }
-        });
-    }
-    
-    if (customCategories) {
-        const categories = JSON.parse(customCategories);
-        categories.forEach(category => {
-            if (!questionBank[category.name]) {
-                questionBank[category.name] = [];
-            }
-        });
-    }
-    
-    quizConfig.categories = Object.keys(questionBank);
-}
-
-// Save custom questions
-function saveCustomQuestions() {
-    const customQuestions = {};
-    Object.keys(questionBank).forEach(category => {
-        const customQs = questionBank[category].filter(q => q.id.startsWith('custom_'));
-        if (customQs.length > 0) {
-            customQuestions[category] = customQs;
-        }
-    });
-    localStorage.setItem('cgf-custom-questions', JSON.stringify(customQuestions));
-}
-
-// Save custom categories
-function saveCustomCategories() {
-    const categories = Object.keys(questionBank).map(name => ({
-        name: name,
-        description: `Questions related to ${name}`,
-        questionCount: questionBank[name].length
-    }));
-    localStorage.setItem('cgf-custom-categories', JSON.stringify(categories));
-}
-
-// Initialize data
-loadCustomData();
 
 // Export for use in other files
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { questionBank, quizConfig, loadCustomData, saveCustomQuestions, saveCustomCategories };
+    module.exports = { questionBank, quizConfig };
 }
